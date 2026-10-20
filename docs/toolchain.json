@@ -1,0 +1,55 @@
+{
+  "project": "uniloop",
+  "engine": "godot",
+  "godot_version": "4.7.2-stable",
+  "godot_release_tag": "4.7.2-stable",
+  "godot_download_url": "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.arm64.zip",
+  "windows_editor_url": "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip",
+  "export_templates_url": "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz",
+  "language": "gdscript",
+  "architecture": {
+    "pattern": "domain-pure-core-plus-godot-scene-nodes",
+    "ux_strategy": "B",
+    "ux_strategy_description": "Fully custom branded game UI with Control nodes, adaptive safe-area handling, platform back/quit, touch controls and keyboard/gamepad glyphs"
+  },
+  "platforms": {
+    "windows": {
+      "status": "primary",
+      "export_preset": "Windows Desktop",
+      "renderer": "Forward+",
+      "binary_format": "zip"
+    },
+    "android": {
+      "status": "secondary",
+      "export_preset": "Android",
+      "renderer": "Mobile",
+      "application_id": "com.infinityball.uniloop",
+      "tablet_support": true
+    },
+    "ios": {
+      "status": "secondary",
+      "export_preset": "iOS",
+      "renderer": "Mobile",
+      "bundle_identifier": "com.infinityball.uniloop",
+      "targeted_device_family": "1,2",
+      "tablet_support": true,
+      "asc_bundle_registered": true
+    }
+  },
+  "art_pipeline": {
+    "image_generator": "spark-media image (OpenAI Images API gpt-image-2.5-flare)",
+    "mesh_generator": "spark-media mesh (Hunyuan3D via ComfyUI on Sparky)",
+    "lfs_tracking": ["*.png", "*.jpg", "*.webp", "*.glb", "*.fbx", "*.ogg", "*.wav", "*.woff2"],
+    "origin_tracker": "assets/README.md",
+    "manual_fallback_issue_label": "art-asset"
+  },
+  "testing": {
+    "framework": "GUT",
+    "headless_checks": ["--import", "--quit"]
+  },
+  "network": {
+    "consent_required": false,
+    "cloud_sync": false,
+    "status": "zero-network offline-by-default"
+  }
+}

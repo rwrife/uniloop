@@ -1,0 +1,40 @@
+; Engine configuration file.
+; Planned game scaffold, not a playable build.
+config_version=5
+
+[application]
+config/name="Uniloop"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/description="Offline single-wheel momentum racing"
+config/icon="res://AppStore/icon.png"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+
+[input]
+accelerate={
+"deadzone": 0.2,
+"events": []
+}
+brake={
+"deadzone": 0.2,
+"events": []
+}
+lean_left={
+"deadzone": 0.2,
+"events": []
+}
+lean_right={
+"deadzone": 0.2,
+"events": []
+}
+jump={
+"deadzone": 0.2,
+"events": []
+}
+pause={
+"deadzone": 0.2,
+"events": []
+}

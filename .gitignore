@@ -1,0 +1,29 @@
+# Godot generated/imported data
+.godot/
+.import/
+.export/
+*.tmp
+# Export output
+build/
+dist/
+exports/
+*.pck
+*.exe
+*.apk
+*.aab
+*.ipa
+*.xcarchive/
+*.zip
+# Development tools
+.vscode/
+.idea/
+.DS_Store
+# Local secrets/signing
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+.env
+# Test output
+coverage/
+reports/

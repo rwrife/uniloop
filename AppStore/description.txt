@@ -1,0 +1,14 @@
+Master the flow in Uniloop, the offline 3D momentum-racing game built for players who love pure rhythm and precision.
+
+Ride a high-speed, single-wheel racing machine across sculpted loop courses, banked turns, and elevated launch ramps. In Uniloop, momentum is everything: time your acceleration through dips, lean into high-speed arcs, jump launch crests, and nail smooth landings to keep your speed multiplier climbing.
+
+Features:
+- Pure momentum physics: Lean, pump through bowls, and align your wheel with slopes for maximum launch velocity.
+- Three handcrafted original courses: From sweeping sunlit canyon ribbons to neon-accented night loops and precision rooftop tracks.
+- Time trial & medal challenges: Race against par times, earn bronze, silver, and gold medals, and record local personal bests.
+- Stunt lines & clean streaks: Score bonus style points for clean landing chains, mid-air balance, and zero-wipeout runs.
+- Platform-authentic controls: Touch overlay on phone and tablet, full keyboard/mouse and gamepad support on desktop.
+- Responsive design: Optimized for phones, tablets, and full-screen PC play.
+- 100% offline & privacy-first: No accounts, no ads, no subscriptions, no tracking, and no required internet connection. All saves stay on your device with clean JSON export.
+
+Grab your wheel, carve the loop, and set the record.
