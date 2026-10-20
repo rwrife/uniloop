@@ -1,6 +1,7 @@
 # Godot generated/imported data
 .godot/
 .import/
+*.import
 .export/
 *.tmp
 # Export output
