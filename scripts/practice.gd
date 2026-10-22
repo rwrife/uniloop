@@ -47,7 +47,7 @@ func _physics_process(delta: float) -> void:
 	if rider.last_landing == "landed":
 		_message = "Landing: %s" % rules.land(rider.vertical_speed_before_landing, rider.bank_angle)
 		rider.last_landing = ""
-	if rider.global_position.y < rider.handling.fall_height or absf(rider.global_position.x) > 80.0 or rider.global_position.z < -200.0:
+	if rider.global_position.y < rider.handling.fall_height or absf(rider.global_position.x) > rider.handling.course_bound_x or rider.global_position.z < rider.handling.course_end_z:
 		_reset()
 
 func _process(delta: float) -> void:
