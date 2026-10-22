@@ -15,6 +15,6 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | Asset Path | Type | Origin | Generation details / source | Status |
 |---|---|---|---|---|
 | `AppStore/icon.png` | 2D Icon | `ai-generated` | spark-media image (gpt-image-2.5-flare, 1024x1024 RGB) | Accepted |
-| `assets/models/one_wheel_racer.glb` | 3D Vehicle | `ai-generated-pending` | Target: single-wheel momentum racer; issue #4 will prove pipeline | Pending generation |
-| `assets/models/gate_checkpoint.glb` | 3D Prop | `primitive-fallback` | Clean Godot TorusMesh / BoxMesh placeholder | Scaffold placeholder |
-| `assets/models/track_loop_segment.glb` | 3D Course | `primitive-fallback` | Clean Godot Path3D / CSGPolygon3D ribbon track | Scaffold placeholder |
+| `scripts/wheel_rider.gd` | 3D Vehicle | `primitive` | Godot CylinderMesh wheel + CapsuleMesh rider with PBR materials | Active placeholder; mesh pipeline pending #4 |
+| `scripts/canyon.gd` (gate) | 3D Prop | `primitive` | Godot BoxShape3D trigger with BoxMesh painted arch beam | Active placeholder |
+| `scripts/canyon.gd` (ribbon) | 3D Course | `primitive` | Godot SurfaceTool ribbon mesh with trimesh ConcavePolygonShape3D collision | Active placeholder |

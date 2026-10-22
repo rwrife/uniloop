@@ -1,6 +1,9 @@
 # Godot generated/imported data
 .godot/
 .import/
+.cache/
+.config/
+.local/
 *.import
 .export/
 *.tmp
