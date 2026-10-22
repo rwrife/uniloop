@@ -1,6 +1,5 @@
 extends GutTest
-## Skeleton contract: project boots to a menu stub and declares every input
-## action with keyboard plus gamepad bindings.
+## Project boots to menu and declares gameplay actions with keyboard and gamepad bindings.
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 const PRACTICE_SCENE := "res://scenes/practice.tscn"
