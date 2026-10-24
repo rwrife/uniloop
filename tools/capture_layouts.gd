@@ -63,6 +63,21 @@ func _process(_delta: float) -> bool:
 	if _frames < 12:
 		return false
 	var spec: Dictionary = LAYOUTS[_index]
+	# Verify primary interactions fit viewport, not merely that PNG bytes exist.
+	var margin: Control = root.get_node_or_null("MainMenu/SafeMargin")
+	if margin != null:
+		var active: Control = margin.get_node("SubPanel") if spec.view == "settings" else margin.get_node("MainCard")
+		var viewport_size: Vector2i = spec.size
+		if active.global_position.x < -1 or active.global_position.y < -1 or active.global_position.x + active.size.x > viewport_size.x + 1 or active.global_position.y + active.size.y > viewport_size.y + 1:
+			push_error("layout overflow: %s at %s size %s versus %s" % [spec.name, active.global_position, active.size, viewport_size])
+			quit(1)
+			return false
+	elif spec.view == "pause":
+		var panel := root.get_node_or_null("Practice/Hud/Root/PausePanel")
+		if panel != null and panel.size.x > spec.size.x:
+			push_error("pause layout wider than viewport: %s versus %s" % [panel.size, spec.size])
+			quit(1)
+			return false
 	var image := root.get_texture().get_image()
 	var path: String = OUT_DIR + "/" + spec.name + ".png"
 	var err := image.save_png(path)

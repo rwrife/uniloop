@@ -162,27 +162,27 @@ func _open_settings() -> void:
 	subpanel_body.add_child(to)
 
 	# Text Scale
-	var scale_box := HBoxContainer.new()
 	var scale_label := Label.new()
-	scale_label.text = "Text Scale: "
-	scale_box.add_child(scale_label)
+	scale_label.text = "Text Scale:"
+	subpanel_body.add_child(scale_label)
+	var scale_box := HBoxContainer.new()
 	for sc in SaveStore.TEXT_SCALES:
-		var sbtn := UniloopUI.button(str(int(sc * 100)) + "%", 80)
+		var sbtn := UniloopUI.button(str(int(sc * 100)) + "%", 70)
 		sbtn.pressed.connect(_on_text_scale_pressed.bind(sc))
 		scale_box.add_child(sbtn)
 	subpanel_body.add_child(scale_box)
 
 	# Master volume slider
-	var vol_box := HBoxContainer.new()
+	var vol_box := VBoxContainer.new()
 	var vol_label := Label.new()
-	vol_label.text = "Master Volume: %d%% " % int(settings.audio_master)
+	vol_label.text = "Master Volume: %d%%" % int(settings.audio_master)
 	vol_box.add_child(vol_label)
 	var slider := HSlider.new()
 	slider.min_value = 0
 	slider.max_value = 100
 	slider.value = float(settings.audio_master)
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.custom_minimum_size = Vector2(160, 32)
+	slider.custom_minimum_size = Vector2(120, 32)
 	slider.focus_mode = Control.FOCUS_ALL
 	slider.value_changed.connect(_on_volume_changed.bind(vol_label))
 	vol_box.add_child(slider)
@@ -191,6 +191,8 @@ func _open_settings() -> void:
 	# Key rebind row
 	var rebind_hdr := Label.new()
 	rebind_hdr.text = "Keyboard Remap (Press button, then any key):"
+	rebind_hdr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rebind_hdr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	subpanel_body.add_child(rebind_hdr)
 	var rebind_grid := GridContainer.new()
 	rebind_grid.columns = 2

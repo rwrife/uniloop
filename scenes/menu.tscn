@@ -33,8 +33,10 @@ horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="SafeMargin/MainCard"]
 layout_mode = 2
+size_flags_horizontal = 1
 text = "Offline 3D Single-Wheel Momentum Racing"
 horizontal_alignment = 1
+autowrap_mode = 3
 
 [node name="Records" type="Label" parent="SafeMargin/MainCard"]
 layout_mode = 2
