@@ -2,12 +2,57 @@ class_name SaveStore
 extends RefCounted
 ## Versioned, scene-free save schema: validation, migration, atomic write.
 
-const SCHEMA_VERSION := 2
+const SCHEMA_VERSION := 3
 const MEDALS := ["none", "bronze", "silver", "gold"]
+const TEXT_SCALES := [1.0, 1.25, 1.5]
+const DEFAULT_SETTINGS := {
+	"text_scale": 1.0,
+	"high_contrast": false,
+	"reduced_shake": false,
+	"touch_overlay": true,
+	"audio_master": 80,
+}
 
 
 static func default_save() -> Dictionary:
-	return {"version": SCHEMA_VERSION, "records": {}, "total_score": 0}
+	return {
+		"version": SCHEMA_VERSION,
+		"records": {},
+		"total_score": 0,
+		"settings": DEFAULT_SETTINGS.duplicate(true),
+	}
+
+
+## Coerce any settings blob to a valid settings dict. Unknown keys drop,
+## invalid values fall back to defaults. Never fails (settings are UX, not records).
+static func sanitize_settings(raw: Variant) -> Dictionary:
+	var out: Dictionary = DEFAULT_SETTINGS.duplicate(true)
+	if typeof(raw) != TYPE_DICTIONARY:
+		return out
+	var data: Dictionary = raw
+	if data.get("text_scale") in TEXT_SCALES:
+		out.text_scale = float(data["text_scale"])
+	for flag in ["high_contrast", "reduced_shake", "touch_overlay"]:
+		if typeof(data.get(flag)) == TYPE_BOOL:
+			out[flag] = data[flag]
+	var volume := _as_int(data.get("audio_master", -1))
+	if volume >= 0 and volume <= 100:
+		out.audio_master = volume
+	return out
+
+
+static func get_settings(save: Dictionary) -> Dictionary:
+	return sanitize_settings(save.get("settings"))
+
+
+## Merge updates into the save's settings and sanitize. Returns the new settings.
+static func set_settings(save: Dictionary, updates: Dictionary) -> Dictionary:
+	var merged: Dictionary = get_settings(save)
+	for key in updates:
+		merged[key] = updates[key]
+	var clean := sanitize_settings(merged)
+	save.settings = clean
+	return clean
 
 
 ## Returns {ok: bool, error: String, save: Dictionary}.
@@ -35,6 +80,8 @@ static func from_json(text: String) -> Dictionary:
 	var validated := _validate(save)
 	if not validated.ok:
 		return validated
+	# ponytail: v1/v2 carry no settings; v3 always stores sanitized settings.
+	save.settings = sanitize_settings(save.get("settings"))
 	save.version = SCHEMA_VERSION
 	return {"ok": true, "error": "", "save": save}
 

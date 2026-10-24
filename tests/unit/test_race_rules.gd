@@ -57,7 +57,7 @@ func test_save_migration_best_record_and_round_trip() -> void:
 	var old := '{"version":1,"times":[{"course":"canyon","best_ms":70000,"medal":"silver"}],"total_score":50}'
 	var result: Dictionary = Store.from_json(old)
 	assert_true(result.ok)
-	assert_eq(result.save.version, 2)
+	assert_eq(result.save.version, 3)
 	assert_eq(result.save.records.canyon.best_ms, 70000)
 	Store.record_best(result.save, "canyon", 80000, "gold", 20)
 	assert_eq(result.save.records.canyon.best_ms, 70000)

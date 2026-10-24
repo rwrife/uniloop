@@ -13,7 +13,7 @@ One `project.godot` with `export_presets.cfg` checked in; addon/test harness arr
 3. Playable practice and first sculpted course with predictable single-wheel controls, touch and keyboard/gamepad, camera and checkpoint resets.
 4. Generated art route end to end: OpenAI Images reference (`spark-media image`) -> Hunyuan3D mesh (`spark-media mesh --image`) -> visual/topology review -> Git LFS `assets/models/` -> PBR `StandardMaterial3D`, collision and LOD. Track origin in `assets/README.md`. For failed AI topology, substitute clean Godot primitives and create open `art-asset` issue specifying reference, scale/pivot, materials/LOD, tri budget, collision/animation requirements and exact failure; never ship broken mesh.
 5. Two more distinct courses, optional stunt routes, medal unlocks, time-trial ghost, saved progression, audio, GPUParticles3D, camera polish and transition polish.
-6. Strategy **B: fully custom branded Godot Control UI**. Responsive menus and touch overlay for phone/tablet, keyboard/mouse/gamepad prompts for Windows. Mobile safe areas, back/pause semantics, text scaling, high contrast, reduced shake, remap/settings. No platform-themed Material-on-iOS or Cupertino-on-Android crossovers. Validate key views on each target.
+6. Strategy **B: fully custom branded Godot Control UI**. Responsive menus and touch overlay for phone/tablet, keyboard/mouse/gamepad prompts for Windows. Mobile safe areas, back/pause semantics, text scaling, high contrast, reduced shake, remap/settings. No platform-themed Material-on-iOS or Cupertino-on-Android crossovers. Validate key views on each target. **Implemented (issue #6):** custom theme, full menu/course/settings/help/pause surfaces, save-backed settings v3, keyboard remapping, device prompts, safe-area handling; desktop/tablet/phone/portrait/landscape captures in `docs/screenshots/ui/`. Real Windows and Android/iOS device visual checks remain pending because this lane captured on headless Linux + Xvfb/OpenGL rather than a Windows runner.
 7. Validated export/import for versioned local records, overwrite preview/backup and no-network privacy audit; update `AppStore/description.txt` and wire genuine `AppStore/icon.png` to project and all target export icons.
 8. `.github/workflows/release.yml` triggered by `v*` tag or manual dispatch: pinned editor/templates, headless tests, Windows Desktop export on `windows-latest`, zip and GitHub release attachment. iOS compile/export on macOS later; store submissions explicitly later/opt-in. No claims before actual CI runs.
 
@@ -21,7 +21,7 @@ One `project.godot` with `export_presets.cfg` checked in; addon/test harness arr
 
 | Target | Renderer | Commitment / verification state |
 |---|---|---|
-| Windows | Forward+ | Primary CI/release, planned; no build yet |
+| Windows | Forward+ | Primary CI Windows Desktop export passed on main at run 39838784465; issue #6 PR revalidation pending |
 | Android phone + tablet | Mobile | Committed build gate, planned; no build yet |
 | iOS iPhone + iPad | Mobile | Committed macOS export milestone, planned; no build yet |
 | Linux/macOS | Forward+ / Mobile fallback | Future exports, untested |

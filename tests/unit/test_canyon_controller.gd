@@ -64,7 +64,8 @@ func test_practice_scene_loads_and_instantiates() -> void:
 	var node: Node = scene.instantiate()
 	assert_not_null(node)
 	add_child_autofree(node)
-	assert_not_null(node.get_node_or_null("Hud/Status"))
+	assert_not_null(node.get_node_or_null("Hud/Root/Status"))
+	assert_not_null(node.get_node_or_null("Hud/Root/PausePanel/Box/Resume"))
 
 func test_rider_moves_over_real_collision_and_crosses_first_gate() -> void:
 	var scene: PackedScene = load("res://scenes/practice.tscn")
