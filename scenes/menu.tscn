@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
 
-[node name="Center" type="CenterContainer" parent="."]
+[node name="SafeMargin" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,19 +19,116 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Options" type="VBoxContainer" parent="Center"]
+[node name="MainCard" type="VBoxContainer" parent="SafeMargin"]
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 16
 
-[node name="Title" type="Label" parent="Center/Options"]
+[node name="Title" type="Label" parent="SafeMargin/MainCard"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 48
 text = "UNILOOP"
 horizontal_alignment = 1
 
-[node name="Practice" type="Button" parent="Center/Options"]
+[node name="Subtitle" type="Label" parent="SafeMargin/MainCard"]
 layout_mode = 2
-text = "Practice"
-
-[node name="Notice" type="Label" parent="Center/Options"]
-layout_mode = 2
-text = "Canyon Ribbon is rideable - WASD or gamepad"
+text = "Offline 3D Single-Wheel Momentum Racing"
 horizontal_alignment = 1
+
+[node name="Records" type="Label" parent="SafeMargin/MainCard"]
+layout_mode = 2
+size_flags_horizontal = 1
+text = "CANYON RIBBON BEST: --  •  TOTAL SCORE: 0"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Actions" type="VBoxContainer" parent="SafeMargin/MainCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Play" type="Button" parent="SafeMargin/MainCard/Actions"]
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+focus_neighbor_top = NodePath("../Quit")
+focus_neighbor_bottom = NodePath("../Courses")
+focus_next = NodePath("../Courses")
+focus_previous = NodePath("../Quit")
+text = "Play Canyon Ribbon"
+
+[node name="Courses" type="Button" parent="SafeMargin/MainCard/Actions"]
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+focus_neighbor_top = NodePath("../Play")
+focus_neighbor_bottom = NodePath("../Settings")
+focus_next = NodePath("../Settings")
+focus_previous = NodePath("../Play")
+text = "Select Course"
+
+[node name="Settings" type="Button" parent="SafeMargin/MainCard/Actions"]
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+focus_neighbor_top = NodePath("../Courses")
+focus_neighbor_bottom = NodePath("../Help")
+focus_next = NodePath("../Help")
+focus_previous = NodePath("../Courses")
+text = "Settings & Accessibility"
+
+[node name="Help" type="Button" parent="SafeMargin/MainCard/Actions"]
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+focus_neighbor_top = NodePath("../Settings")
+focus_neighbor_bottom = NodePath("../Quit")
+focus_next = NodePath("../Quit")
+focus_previous = NodePath("../Settings")
+text = "How to Play"
+
+[node name="Quit" type="Button" parent="SafeMargin/MainCard/Actions"]
+custom_minimum_size = Vector2(300, 56)
+layout_mode = 2
+focus_neighbor_top = NodePath("../Help")
+focus_neighbor_bottom = NodePath("../Play")
+focus_next = NodePath("../Play")
+focus_previous = NodePath("../Help")
+text = "Quit to Desktop"
+
+[node name="DevicePrompt" type="Label" parent="SafeMargin/MainCard"]
+layout_mode = 2
+size_flags_horizontal = 1
+text = "Control: KEYBOARD  •  Enter/Space/A: Select  •  Esc/B: Back"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="SubPanel" type="PanelContainer" parent="SafeMargin"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Content" type="VBoxContainer" parent="SafeMargin/SubPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="SafeMargin/SubPanel/Content"]
+layout_mode = 2
+size_flags_horizontal = 1
+theme_override_font_sizes/font_size = 28
+text = "PANEL"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Body" type="ScrollContainer" parent="SafeMargin/SubPanel/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Items" type="VBoxContainer" parent="SafeMargin/SubPanel/Content/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Back" type="Button" parent="SafeMargin/SubPanel/Content"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+text = "Back to Menu"
