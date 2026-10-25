@@ -194,6 +194,11 @@ func _build() -> void:
 
 
 func _apply_layout() -> void:
+	# Bias the crop toward the upper artwork so the title clears wide phone edges.
+	var viewport_size := get_viewport_rect().size
+	var image_size := background.texture.get_size()
+	var image_height := viewport_size.x * image_size.y / image_size.x
+	background.offset_bottom = maxf(0.0, image_height - viewport_size.y) * 0.35
 	background.pivot_offset = background.size * 0.5
 	var touchscreen := DisplayServer.is_touchscreen_available()
 	UniloopUI.apply_safe_area(safe, touchscreen)
