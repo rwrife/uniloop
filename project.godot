@@ -9,7 +9,7 @@ run/main_scene="res://scenes/menu.tscn"
 config/icon="res://AppStore/icon.png"
 config/windows_native_icon="res://AppStore/icon.ico"
 boot_splash/bg_color=Color(0.11, 0.03, 0.2, 1)
-boot_splash/stretch_mode=1
+boot_splash/stretch_mode=4
 boot_splash/image="res://assets/ui/boot_splash.png"
 boot_splash/minimum_display_time=600
 
