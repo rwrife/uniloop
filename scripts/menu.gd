@@ -6,7 +6,7 @@ extends Control
 
 const PRACTICE_SCENE := "res://scenes/practice.tscn"
 const SAVE_PATH := "user://uniloop.json"
-const SPLASH := preload("res://assets/ui/splash.jpg")
+const SPLASH := preload("res://assets/ui/boot_splash.png")
 const DESKTOP_OS := ["Windows", "Linux", "FreeBSD", "NetBSD", "OpenBSD", "macOS"]
 ## Where Back goes from each sub-screen.
 const PARENT := {"uni": "title", "track": "uni", "league": "title", "options": "title", "help": "options"}
@@ -77,17 +77,21 @@ func _ui_scale() -> float:
 
 
 func _build() -> void:
+	var backdrop := ColorRect.new()
+	backdrop.color = ProjectSettings.get_setting("application/boot_splash/bg_color")
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(backdrop)
+
 	background = TextureRect.new()
 	background.name = "Splash"
 	background.texture = SPLASH
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	# Fit the entire artwork so the title survives wide and tall viewports.
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
-	var drift := background.create_tween().set_loops()
-	drift.tween_property(background, "scale", Vector2(1.04, 1.04), 6.0).set_trans(Tween.TRANS_SINE)
-	drift.tween_property(background, "scale", Vector2.ONE, 6.0).set_trans(Tween.TRANS_SINE)
 
 	safe = MarginContainer.new()
 	safe.name = "SafeMargin"
