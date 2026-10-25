@@ -3,7 +3,8 @@ extends GutTest
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 const PRACTICE_SCENE := "res://scenes/practice.tscn"
-const ACTIONS := ["accelerate", "brake", "lean_left", "lean_right", "jump", "pause"]
+const ACTIONS := ["move_left", "move_right", "flip_back", "roll_forward", "jump", "brake",
+	"zflip_left", "zflip_right", "tabletop", "pause"]
 
 
 func test_main_scene_is_the_menu() -> void:

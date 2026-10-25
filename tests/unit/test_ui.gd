@@ -50,7 +50,9 @@ func test_settings_migrate_validate_and_persist() -> void:
 
 func test_device_prompts() -> void:
 	assert_eq(UI.prompt(&"jump", "keyboard"), "Space")
-	assert_eq(UI.prompt(&"jump", "playstation"), "□")
+	assert_eq(UI.prompt(&"jump", "playstation"), "✕")
+	assert_eq(UI.prompt(&"tabletop", "nintendo"), "X")
+	assert_eq(UI.prompt(&"zflip_left", "xbox"), "LB")
 	assert_eq(UI.prompt(&"jump", "touch"), "JUMP")
 	assert_eq(UI.prompt(&"pause", "nintendo"), "+")
 	assert_eq(UI.device_for(InputEventKey.new()), "keyboard")
@@ -81,25 +83,78 @@ func test_rebind_keeps_gamepad_and_persists() -> void:
 func test_menu_controls_and_pause_flow() -> void:
 	var menu: Control = load("res://scenes/menu.tscn").instantiate()
 	add_child_autofree(menu)
-	var play: Button = menu.get_node("SafeMargin/MainCard/Actions/Play")
+	var play: Button = menu.buttons.quick_race
 	assert_true(play.has_focus())
 	assert_true(play.focus_neighbor_bottom != NodePath())
-	menu._open_settings()
-	assert_true(menu.get_node("SafeMargin/SubPanel").visible)
-	assert_true(menu.get_node("SafeMargin/SubPanel/Content/Back").has_focus())
-	menu._close_subpanel()
+	assert_true(menu.buttons.multiplayer.disabled, "multiplayer is coming soon")
+	assert_eq(menu.background.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
+	menu._open("options")
+	assert_true(menu.panel.visible)
+	assert_false(menu.title_menu.visible)
+	menu._go_back()
 	assert_true(play.visible)
+	assert_false(menu.panel.visible)
 	var practice: Node3D = load("res://scenes/practice.tscn").instantiate()
+	practice.countdown_enabled = false
 	add_child_autofree(practice)
 	practice._set_paused(true)
 	assert_true(get_tree().paused)
 	assert_true(practice.pause_panel.visible)
-	practice._open_pause_settings()
-	assert_false(practice.pause_panel.visible)
-	assert_true(practice.settings_panel.visible)
-	practice._open_pause_from_settings()
-	assert_true(practice.pause_panel.visible)
-	assert_false(practice.settings_panel.visible)
+	assert_null(practice.get_node_or_null("Hud/Root/SettingsPanel"), "no settings in the pause menu")
+	var labels: Array[String] = []
+	for b in practice.pause_panel.get_node("Box").get_children():
+		if b is Button:
+			labels.append(b.text)
+			assert_eq(b.get_theme_font("font"), UniloopUI.CHUNKY_FONT, "pause buttons match the menu")
+	assert_eq(labels, ["RESUME", "RESTART RACE", "QUIT RACE"] as Array[String])
+	assert_true(practice.get_node("Hud/Root/PausePanel/Box/Resume").has_focus())
 	practice._set_paused(false)
 	assert_false(get_tree().paused)
 	assert_false(practice.pause_panel.visible)
+
+
+func test_quick_race_flow_picks_uni_then_track() -> void:
+	var menu: Control = load("res://scenes/menu.tscn").instantiate()
+	menu.auto_launch = false
+	add_child_autofree(menu)
+	menu.buttons.quick_race.pressed.emit()
+	assert_eq(menu.screen, "uni")
+	assert_eq(menu.cards.size(), RaceSetup.UNIS.size())
+	assert_between(RaceSetup.UNIS.size(), 5, 8, "about six unicycle colours")
+	menu.cards[3].pressed.emit()
+	assert_eq(RaceSetup.uni_index, 3)
+	assert_eq(menu.screen, "track")
+	assert_eq(menu.cards.size(), RaceSetup.TRACKS.size())
+	menu.cards[2].pressed.emit()
+	assert_eq(RaceSetup.track_id, RaceSetup.TRACKS[2].id)
+	menu._go_back()
+	assert_eq(menu.screen, "uni")
+	menu._go_back()
+	assert_eq(menu.screen, "title")
+	RaceSetup.uni_index = 0
+	RaceSetup.track_id = RaceSetup.DEFAULT_TRACK
+
+
+func test_league_lists_every_track() -> void:
+	var menu: Control = load("res://scenes/menu.tscn").instantiate()
+	add_child_autofree(menu)
+	menu._open("league")
+	var text := ""
+	for node in menu.panel.find_children("*", "Label", true, false):
+		text += (node as Label).text + "\n"
+	for t in RaceSetup.TRACKS:
+		assert_true(String(t.title).to_upper() in text, t.id)
+
+
+func test_countdown_freezes_rider_until_race() -> void:
+	var practice: Node3D = load("res://scenes/practice.tscn").instantiate()
+	practice.save_path = "user://countdown_test.json"
+	add_child_autofree(practice)
+	assert_false(practice.racing)
+	assert_eq(practice.rider.process_mode, Node.PROCESS_MODE_DISABLED)
+	await wait_seconds(1.0)
+	assert_eq(practice.rules.elapsed_ms, 0, "clock waits for the countdown")
+	await wait_seconds(3.0)
+	assert_true(practice.racing)
+	assert_eq(practice.countdown_label.text, "RACE!")
+	assert_eq(practice.rider.process_mode, Node.PROCESS_MODE_PAUSABLE)

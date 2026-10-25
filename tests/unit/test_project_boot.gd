@@ -2,7 +2,8 @@ extends GutTest
 ## Skeleton smoke tests: input contract, scene loading, toolchain pin.
 
 const ACTIONS: Array[StringName] = [
-	&"accelerate", &"brake", &"lean_left", &"lean_right", &"jump", &"pause"
+	&"move_left", &"move_right", &"flip_back", &"roll_forward", &"jump", &"brake",
+	&"zflip_left", &"zflip_right", &"tabletop", &"pause"
 ]
 
 

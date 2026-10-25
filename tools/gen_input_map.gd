@@ -4,12 +4,19 @@ extends SceneTree
 ##   godot --headless --path . -s tools/gen_input_map.gd
 ## Touch devices reuse the same actions via the in-scene overlay (practice.gd).
 
-# Godot 4 JoyButton indices: X=2, BACK=4, START=6, L3=7, dpad L=13/R=14.
+# Godot 4 JoyButton indices (Xbox layout): A=0, X=2, Y=3, BACK=4, START=6,
+# LB=9, RB=10, D-pad up/down/left/right = 11/12/13/14. SNES mapping:
+# B (jump) = bottom face, Y (brake) = left face, X (tabletop) = top face.
 const BUTTONS := {
-	"SQUARE": 2,
-	"START": 6,
+	"FACE_BOTTOM": 0,
+	"FACE_LEFT": 2,
+	"FACE_TOP": 3,
 	"SELECT": 4,
-	"L3": 7,
+	"START": 6,
+	"LB": 9,
+	"RB": 10,
+	"DPAD_UP": 11,
+	"DPAD_DOWN": 12,
 	"DPAD_LEFT": 13,
 	"DPAD_RIGHT": 14,
 }
@@ -19,6 +26,10 @@ const KEYS := {
 	"S": Key.KEY_S,
 	"A": Key.KEY_A,
 	"D": Key.KEY_D,
+	"Q": Key.KEY_Q,
+	"E": Key.KEY_E,
+	"X": Key.KEY_X,
+	"SHIFT": Key.KEY_SHIFT,
 	"UP": Key.KEY_UP,
 	"DOWN": Key.KEY_DOWN,
 	"LEFT": Key.KEY_LEFT,
@@ -28,29 +39,49 @@ const KEYS := {
 }
 
 const ACTIONS := {
-	"accelerate": {
-		"keys": ["W", "UP"],
-		"pad_buttons": [],
-		"pad_axes": [[1, -1.0]],
-	},
-	"brake": {
-		"keys": ["S", "DOWN"],
-		"pad_buttons": [],
-		"pad_axes": [[1, 1.0]],
-	},
-	"lean_left": {
+	"move_left": {
 		"keys": ["A", "LEFT"],
 		"pad_buttons": ["DPAD_LEFT"],
 		"pad_axes": [[0, -1.0]],
 	},
-	"lean_right": {
+	"move_right": {
 		"keys": ["D", "RIGHT"],
 		"pad_buttons": ["DPAD_RIGHT"],
 		"pad_axes": [[0, 1.0]],
 	},
+	"flip_back": {
+		"keys": ["W", "UP"],
+		"pad_buttons": ["DPAD_UP"],
+		"pad_axes": [[1, -1.0]],
+	},
+	"roll_forward": {
+		"keys": ["S", "DOWN"],
+		"pad_buttons": ["DPAD_DOWN"],
+		"pad_axes": [[1, 1.0]],
+	},
 	"jump": {
 		"keys": ["SPACE"],
-		"pad_buttons": ["SQUARE", "L3"],
+		"pad_buttons": ["FACE_BOTTOM"],
+		"pad_axes": [],
+	},
+	"brake": {
+		"keys": ["SHIFT"],
+		"pad_buttons": ["FACE_LEFT"],
+		"pad_axes": [],
+	},
+	"zflip_left": {
+		"keys": ["Q"],
+		"pad_buttons": ["LB"],
+		"pad_axes": [[4, 1.0]],
+	},
+	"zflip_right": {
+		"keys": ["E"],
+		"pad_buttons": ["RB"],
+		"pad_axes": [[5, 1.0]],
+	},
+	"tabletop": {
+		"keys": ["X"],
+		"pad_buttons": ["FACE_TOP"],
 		"pad_axes": [],
 	},
 	"pause": {
