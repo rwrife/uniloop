@@ -87,11 +87,15 @@ func _build() -> void:
 	background.name = "Splash"
 	background.texture = SPLASH
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	# Fit the entire artwork so the title survives wide and tall viewports.
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# Cover the viewport with extra bleed throughout the breathing animation.
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
+	background.scale = Vector2(1.02, 1.02)
+	var breathe := background.create_tween().set_loops()
+	breathe.tween_property(background, "scale", Vector2(1.06, 1.06), 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	breathe.tween_property(background, "scale", Vector2(1.02, 1.02), 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 	safe = MarginContainer.new()
 	safe.name = "SafeMargin"
@@ -189,6 +193,7 @@ func _build() -> void:
 
 
 func _apply_layout() -> void:
+	background.pivot_offset = background.size * 0.5
 	var touchscreen := DisplayServer.is_touchscreen_available()
 	UniloopUI.apply_safe_area(safe, touchscreen)
 	var s := _ui_scale()

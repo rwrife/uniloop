@@ -87,7 +87,7 @@ func test_menu_controls_and_pause_flow() -> void:
 	assert_true(play.has_focus())
 	assert_true(play.focus_neighbor_bottom != NodePath())
 	assert_true(menu.buttons.multiplayer.disabled, "multiplayer is coming soon")
-	assert_eq(menu.background.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	assert_eq(menu.background.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 	menu._open("options")
 	assert_true(menu.panel.visible)
 	assert_false(menu.title_menu.visible)
