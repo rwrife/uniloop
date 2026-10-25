@@ -5,7 +5,7 @@ extends Control
 const PRACTICE_SCENE := "res://scenes/practice.tscn"
 const SAVE_PATH := "user://uniloop.json"
 const COURSES := [
-	{"id": "canyon_ribbon", "title": "Canyon Ribbon", "desc": "High-speed side-scrolling rail run with three jump gaps"},
+	{"id": "canyon_climb", "title": "Canyon Ribbon", "desc": "Zig-zag climb: loops, U-turn helixes, vertical launches, shortcuts and goo"},
 	{"id": "neon_night", "title": "Neon Night Loop", "desc": "High-speed banked loops (coming soon)"},
 	{"id": "rooftop_line", "title": "Rooftop Line", "desc": "Precision gap riding (coming soon)"},
 ]
@@ -101,9 +101,10 @@ func _wire_buttons() -> void:
 
 
 func _update_summary() -> void:
-	var best := str(save.records.get("canyon_ribbon", {}).get("best_ms", "none"))
-	var medal := str(save.records.get("canyon_ribbon", {}).get("medal", "none"))
-	var time_str := "%0.2fs" % (int(best) / 1000.0) if best != "none" else "--"
+	var record: Dictionary = save.records.get(CanyonCourse.COURSE_ID, {})
+	var best := str(record.get("best_ms", "none"))
+	var medal := str(record.get("medal", "none"))
+	var time_str := "%d:%05.2f" % [int(best) / 60000, fmod(float(best), 60000.0) / 1000.0] if best != "none" else "--"
 	records_label.text = "CANYON RIBBON BEST: %s (%s)  •  TOTAL SCORE: %d" % [
 		time_str, medal.to_upper(), int(save.get("total_score", 0))
 	]
@@ -245,17 +246,20 @@ func _on_rebind_pressed(action: StringName, button: Button) -> void:
 func _open_help() -> void:
 	_prepare_subpanel("HOW TO PLAY & ACCESSIBILITY")
 	var lines: Array[String] = [
-		"RACE GOAL: Build speed along the striped rail, jump the gaps, and cross every numbered gate in order.",
-		"LANDING BANDS: Perfect landing (<6 m/s impact, <12 deg off the rail angle) gives +200 score and builds streak multiplier.",
-		"FLIPS: Tilt forward/back in the air to flip. Land level with the rail for +500 per flip; land badly and you wipe out.",
-		"RESETS: Falling through a gap resets to the last crossed gate with a +3s penalty.",
+		"RACE GOAL: Ride the rail through every numbered gate in order. The course zig-zags upward: U-turn helixes and vertical launches flip your direction, so follow the arrows.",
+		"TRACK COLORS: Blue/green = normal rail. Red/blue = loops, U-turns and launches ahead. Yellow = shortcut (hold Up at a ▲ fork). Red/yellow = jumps, pitfalls and green goo that slows you down.",
+		"ONE-WAY RAILS: You can launch up through the underside of a rail and land on top of it. Fall off and you drop to the rail below - ride back up to where you were.",
+		"STUNTS (in the air): Flip = backward 360, Roll = forward 360, Twist = 180 spin, Z-Flip = seat to the ground, Tabletop = hold the stunt button. Land clean for +500 per trick and a speed boost.",
+		"WIPEOUTS: Land tilted, mid-twist, mid-z-flip or still in a tabletop and you crash: -250 points and a short stop while you recover.",
+		"BOOST PADS: Orange pads give a burst of speed - you need it for loops and launches.",
 		"DEVICE GLYPHS:",
-		"  Accelerate: %s" % UniloopUI.prompt(&"accelerate", current_device),
-		"  Brake:      %s" % UniloopUI.prompt(&"brake", current_device),
-		"  Tilt Back:  %s" % UniloopUI.prompt(&"lean_left", current_device),
-		"  Tilt Fwd:   %s" % UniloopUI.prompt(&"lean_right", current_device),
-		"  Jump/Pump:  %s" % UniloopUI.prompt(&"jump", current_device),
-		"  Pause/Menu: %s" % UniloopUI.prompt(&"pause", current_device),
+		"  Ride left / right:  %s / %s (in the air: twist)" % [UniloopUI.prompt(&"move_left", current_device), UniloopUI.prompt(&"move_right", current_device)],
+		"  Flip / Roll:        %s / %s (on the ground: hold Up to take shortcuts)" % [UniloopUI.prompt(&"flip_back", current_device), UniloopUI.prompt(&"roll_forward", current_device)],
+		"  Hop / Pump:         %s" % UniloopUI.prompt(&"jump", current_device),
+		"  Brake:              %s" % UniloopUI.prompt(&"brake", current_device),
+		"  Z-Flip:             %s / %s" % [UniloopUI.prompt(&"zflip_left", current_device), UniloopUI.prompt(&"zflip_right", current_device)],
+		"  Tabletop:           %s" % UniloopUI.prompt(&"tabletop", current_device),
+		"  Pause/Menu:         %s" % UniloopUI.prompt(&"pause", current_device),
 		"ACCESSIBILITY: High-contrast mode, text scaling up to 150%, reduced motion, and full remapping available in Settings.",
 	]
 	for line in lines:

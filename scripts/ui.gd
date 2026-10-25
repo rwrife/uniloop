@@ -7,7 +7,8 @@ const PANEL := Color("172740")
 const CYAN := Color("51e1eb")
 const WHITE := Color("f4faff")
 const YELLOW := Color("ffec57")
-const ACTIONS := [&"accelerate", &"brake", &"lean_left", &"lean_right", &"jump", &"pause"]
+const ACTIONS := [&"move_left", &"move_right", &"flip_back", &"roll_forward", &"jump",
+	&"brake", &"zflip_left", &"zflip_right", &"tabletop", &"pause"]
 
 
 static func mode(size: Vector2i, touchscreen: bool) -> String:
@@ -79,12 +80,13 @@ static func prompt(action: StringName, device: String) -> String:
 	var index := ACTIONS.find(action)
 	if index < 0:
 		return ""
+	var pad := ["D-pad ←", "D-pad →", "D-pad ↑", "D-pad ↓"]
 	var glyphs := {
-		"keyboard": ["W / ↑", "S / ↓", "A / ←", "D / →", "Space", "Esc"],
-		"xbox": ["Left stick ↑", "Left stick ↓", "Left stick ←", "Left stick →", "X", "Menu"],
-		"playstation": ["Left stick ↑", "Left stick ↓", "Left stick ←", "Left stick →", "□", "Options"],
-		"nintendo": ["Left stick ↑", "Left stick ↓", "Left stick ←", "Left stick →", "Y", "+"],
-		"touch": ["GO", "BRAKE", "LEFT", "RIGHT", "JUMP", "PAUSE"],
+		"keyboard": ["A / ←", "D / →", "W / ↑", "S / ↓", "Space", "Shift", "Q", "E", "X", "Esc"],
+		"xbox": pad + ["A", "X", "LB", "RB", "Y", "Menu"],
+		"playstation": pad + ["✕", "□", "L1", "R1", "△", "Options"],
+		"nintendo": pad + ["B", "Y", "L", "R", "X", "+"],
+		"touch": ["◀", "▶", "▲", "▼", "JUMP", "BRAKE", "L", "R", "STUNT", "PAUSE"],
 	}
 	if device == "keyboard":
 		var keys: Array[String] = []

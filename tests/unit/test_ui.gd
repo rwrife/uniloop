@@ -50,7 +50,9 @@ func test_settings_migrate_validate_and_persist() -> void:
 
 func test_device_prompts() -> void:
 	assert_eq(UI.prompt(&"jump", "keyboard"), "Space")
-	assert_eq(UI.prompt(&"jump", "playstation"), "□")
+	assert_eq(UI.prompt(&"jump", "playstation"), "✕")
+	assert_eq(UI.prompt(&"tabletop", "nintendo"), "X")
+	assert_eq(UI.prompt(&"zflip_left", "xbox"), "LB")
 	assert_eq(UI.prompt(&"jump", "touch"), "JUMP")
 	assert_eq(UI.prompt(&"pause", "nintendo"), "+")
 	assert_eq(UI.device_for(InputEventKey.new()), "keyboard")

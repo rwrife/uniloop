@@ -1,26 +1,40 @@
 class_name CanyonCourse
 extends Node3D
-## Side-scrolling 2.5D course: an authored X/Y rail profile rendered as a
-## striped 3D tube, with top-surface collision, jump gaps and sequential gates.
+## Uni Racers-style 2.5D course. Rail legs zigzag upward while drifting right:
+## right-bound legs run in front (z = 0), left-bound legs behind (z = BACK_Z),
+## joined by 180° helix turns or vertical launches that shoot the rider up
+## through the underside of the next leg. The track is a set of polyline
+## sections the rider follows directly; landings are one-way (from above only).
 
-const POINTS: Array[Vector3] = [
-	Vector3(-10, 0, 0), Vector3(40, 0, 0), Vector3(58, 3, 0), Vector3(64, 4, 0),
-	Vector3(78, 2.5, 0), Vector3(100, 0, 0), Vector3(130, 0, 0), Vector3(148, 5, 0),
-	Vector3(162, 6, 0), Vector3(180, 1, 0), Vector3(205, -2, 0), Vector3(228, 2, 0),
-	Vector3(244, 6, 0), Vector3(258, 4.8, 0), Vector3(284, 0, 0), Vector3(310, 0, 0),
-	Vector3(326, 4, 0), Vector3(340, 1, 0), Vector3(356, 5, 0), Vector3(372, 2, 0),
-	Vector3(395, 0, 0), Vector3(420, -3, 0), Vector3(450, -3, 0), Vector3(470, 1, 0),
-	Vector3(486, 0, 0), Vector3(515, -2, 0), Vector3(545, -2, 0), Vector3(610, -2, 0),
+enum { NORMAL, TURN, SHORTCUT, HAZARD, GOO }
+## Stripe colour pairs per kind: blue/green normal, red/blue direction shift,
+## yellow shortcut, red/yellow pitfall or goo hazard.
+const KIND_COLORS := [
+	[Color(0.1, 0.3, 0.92), Color(0.08, 0.72, 0.36)],
+	[Color(0.86, 0.06, 0.12), Color(0.1, 0.16, 0.82)],
+	[Color(1.0, 0.86, 0.1), Color(1.0, 0.6, 0.05)],
+	[Color(0.9, 0.08, 0.1), Color(1.0, 0.85, 0.1)],
+	[Color(0.9, 0.08, 0.1), Color(1.0, 0.85, 0.1)],
 ]
-## Segment i (POINTS[i] -> POINTS[i + 1]) is left open as a jump gap.
-const GAPS: Array[int] = [3, 12, 23]
-const GATES: Array[int] = [1, 6, 14, 20]
-const FINISH_INDEX := 26
-const MEDALS := {"gold": 24000, "silver": 33000, "bronze": 46000}
+const BACK_Z := -10.0
+const SHORTCUT_DEPTH := 2.5
+const UTURN_RADIUS := 5.0
+const UTURN_RISE := 4.0
+const LAUNCH_RADIUS := 6.0
+const LAUNCH_RISE := 4.0
+const LAUNCH_CLEARANCE := 6.0
+const LAUNCH_OVERHANG := 12.0
+const LOOP_SHIFT := 1.6
+const RIGHT_LEG := 440.0
+const LEFT_LEG := 250.0
 const RAIL_RADIUS := 0.45
 const STRIPE_LENGTH := 2.0
+const CHEVRON_SPACING := 7.0
 const COLLISION_HALF_DEPTH := 2.5
-const STRIPE_COLORS: Array[Color] = [Color(0.86, 0.06, 0.12), Color(0.1, 0.16, 0.82)]
+const LAND_Z_TOLERANCE := 2.5
+const CELL := 20.0
+const COURSE_ID := "canyon_climb"
+const MEDALS := {"gold": 145000, "silver": 170000, "bronze": 210000}
 const BACKDROP_SHADER := """
 shader_type spatial;
 render_mode unshaded;
@@ -37,29 +51,442 @@ void fragment() {
 	float diamond = step(abs(f.x - 0.5) + abs(f.y - 0.5), 0.2 + 0.15 * h2) * step(0.45, h2);
 	vec3 col = mix(vec3(0.42, 0.32, 0.30), vec3(0.50, 0.40, 0.37), tri);
 	col = mix(col, vec3(0.35, 0.26, 0.27), diamond);
-	col *= 0.85 + 0.15 * clamp(world_pos.y / 40.0 + 0.5, 0.0, 1.0);
+	col *= 0.8 + 0.2 * clamp(world_pos.y / 200.0 + 0.3, 0.0, 1.0);
 	ALBEDO = pow(col, vec3(2.2));
 }
 """
 
-var gate_areas: Array[Area3D] = []
-var finish_area: Area3D
+class Section:
+	var points := PackedVector3Array()
+	var binormals := PackedVector3Array()
+	## Per segment (points[k] -> points[k + 1]).
+	var kinds := PackedByteArray()
+	var drives := PackedInt32Array()
+	var landable := PackedByteArray()
+	var seg_tangents := PackedVector3Array()
+	var seg_normals := PackedVector3Array()
+	## Per point.
+	var cum := PackedFloat32Array()
+	var tangents := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var curvature := PackedFloat32Array()
+	var length := 0.0
+	var next := -1
+	var fork := -1
+	var prev := -1
+
+var sections: Array = []
+var gates: Array[Dictionary] = []
+var start_spot: Dictionary
+var finish: Dictionary
+var boosts: Array[Dictionary] = []
+var gaps: Array = []
+var forks: Array[Vector3] = []
+var launches: Array[Vector3] = []
+var uturns := 0
+var loops := 0
+var bounds := AABB()
+
+var _sec: Section
+var _sec_index := -1
+var _sec_len := 0.0
+var _pen := Vector3.ZERO
+var _dir := 1
+var _layer_z := 0.0
+var _zt := 0.0
+var _land_sec := PackedInt32Array()
+var _land_k := PackedInt32Array()
+var _cells := {}
 
 func _ready() -> void:
+	_layout()
+	bounds = AABB(sections[0].points[0], Vector3.ZERO)
+	for sec: Section in sections:
+		_finalize(sec)
+		for p in sec.points:
+			bounds = bounds.expand(p)
+	for spot in gates:
+		_resolve(spot)
+	_resolve(start_spot)
+	_resolve(finish)
+	for pad in boosts:
+		_resolve(pad)
+	_index_landing()
 	_build_rail()
 	_build_collision()
 	_build_backdrop()
-	for i in GATES.size():
-		gate_areas.append(_add_gate(GATES[i], "Checkpoint%d" % i, "%d" % (i + 1), Color(0.1, 0.85, 0.75)))
-	finish_area = _add_gate(FINISH_INDEX, "Finish", "FINISH", Color(1.0, 0.8, 0.15))
-	_add_gate(0, "Start", "", Color(0.35, 0.65, 1.0)).monitoring = false
+	for i in gates.size():
+		var arrow := "▶" if gates[i].t.x > 0.0 else "◀"
+		var text := ("%d %s" % [i + 1, arrow]) if arrow == "▶" else ("%s %d" % [arrow, i + 1])
+		_add_gate(gates[i], "Checkpoint%d" % i, text, Color(0.1, 0.85, 0.75))
+	_add_gate(finish, "Finish", "FINISH", Color(1.0, 0.8, 0.15))
+	_add_gate(start_spot, "Start", "", Color(0.35, 0.65, 1.0))
+	for pad in boosts:
+		_add_boost_pad(pad)
+	for f in forks:
+		_add_sign(f, "▲ SHORTCUT", Color(1.0, 0.86, 0.1))
 
-func _built_segments() -> Array[int]:
-	var segments: Array[int] = []
-	for i in range(POINTS.size() - 1):
-		if not GAPS.has(i):
-			segments.append(i)
-	return segments
+# --- Layout -----------------------------------------------------------------
+
+func _layout() -> void:
+	_dir = 1
+	_layer_z = 0.0
+	_zt = 0.0
+	_begin(Vector3(-10, 0, 0))
+	start_spot = _spot(7.0)
+	var plan := [
+		["RA", "uturn"], ["L", "launch"], ["RB", "launch"], ["L", "uturn"],
+		["RA", "launch"], ["L", "uturn"], ["RB", "launch"], ["L", "uturn"], ["FINAL", ""],
+	]
+	for leg: Array in plan:
+		var start_x := _pen.x
+		var kind: String = leg[0]
+		match kind:
+			"RA":
+				_leg_ra()
+			"RB":
+				_leg_rb()
+			"L":
+				_leg_l()
+			"FINAL":
+				_leg_final()
+				continue
+		var length := RIGHT_LEG if kind.begins_with("R") else LEFT_LEG
+		_line_to(start_x + _dir * (length - 20.0))
+		_line_to(start_x + _dir * length, TURN)
+		if leg[1] == "uturn":
+			_uturn()
+		else:
+			_launch()
+
+func _leg_ra() -> void:
+	_line(25.0)
+	_gate()
+	_rollers()
+	_loop_run(7.0)
+	_hill(50.0, 6.0)
+	_jump(14.0, 2.5, 16.0, -1.5)
+	_goo_fork()
+	_hill(40.0, 5.0)
+
+func _leg_rb() -> void:
+	_line(25.0)
+	_gate()
+	_hill(40.0, 4.0)
+	_jump(16.0, 3.5, 22.0, -3.0)
+	_loop_run(8.0)
+	_rollers()
+	_goo_fork()
+	_hill(50.0, 8.0)
+
+func _leg_l() -> void:
+	_line(25.0)
+	_gate()
+	_hill(40.0, 5.0)
+	_loop_run(6.0)
+	_jump(12.0, 2.0, 14.0, -1.0)
+	_hill(40.0, 5.0)
+
+func _leg_final() -> void:
+	_line(25.0)
+	_gate()
+	_rollers()
+	_loop_run(8.0)
+	_hill(40.0, 3.0)
+	_line(40.0)
+	finish = _spot(0.0)
+	_line(160.0)
+
+# --- Builder primitives -----------------------------------------------------
+
+func _begin(at: Vector3, prev := -1) -> int:
+	var sec := Section.new()
+	sec.prev = prev
+	sec.points.append(at)
+	sec.binormals.append(Vector3(0, 0, _dir))
+	sections.append(sec)
+	_sec = sec
+	_sec_index = sections.size() - 1
+	_sec_len = 0.0
+	_pen = at
+	return _sec_index
+
+func _add(p: Vector3, binormal: Vector3, kind: int, drive: int, landable := true) -> void:
+	_sec_len += _pen.distance_to(p)
+	_sec.points.append(p)
+	_sec.binormals.append(binormal)
+	_sec.kinds.append(kind)
+	_sec.drives.append(drive)
+	_sec.landable.append(1 if landable else 0)
+	_pen = p
+
+func _spot(ahead: float) -> Dictionary:
+	return {"sec": _sec_index, "s": _sec_len + ahead}
+
+func _gate() -> void:
+	gates.append(_spot(0.0))
+
+func _boost() -> void:
+	boosts.append(_spot(2.0))
+
+func _profile(dx: float, steps: int, kind: int, shape: Callable) -> void:
+	var start := _pen
+	for i in range(1, steps + 1):
+		var u := float(i) / steps
+		_add(Vector3(start.x + _dir * dx * u, start.y + shape.call(u), lerpf(start.z, _zt, u)), Vector3(0, 0, _dir), kind, _dir)
+
+func _line(dx: float, dy := 0.0, kind := NORMAL) -> void:
+	_profile(dx, maxi(1, ceili(dx / 10.0)), kind, func(u: float) -> float: return dy * u)
+
+func _line_to(x: float, kind := NORMAL) -> void:
+	var dx := (x - _pen.x) * _dir
+	if dx > 0.5:
+		_line(dx, 0.0, kind)
+
+func _hill(dx: float, dy: float, kind := NORMAL) -> void:
+	_profile(dx, maxi(6, ceili(dx / 4.0)), kind, func(u: float) -> float: return dy * (1.0 - cos(PI * u)) * 0.5)
+
+func _rollers() -> void:
+	for k in 2:
+		_hill(22.0, 2.0)
+		_hill(22.0, -2.0)
+
+func _loop_run(radius: float) -> void:
+	_boost()
+	_line(40.0)
+	_loop(radius)
+	_line(25.0)
+
+func _loop(radius: float, steps := 40) -> void:
+	loops += 1
+	var start := _pen
+	var center := start + Vector3(0, radius, 0)
+	for i in range(1, steps + 1):
+		var th := -PI / 2.0 + TAU * i / steps
+		_add(Vector3(center.x + _dir * radius * cos(th), center.y + radius * sin(th), start.z + LOOP_SHIFT * i / steps), Vector3(0, 0, _dir), TURN, _dir)
+
+func _jump(kick_dx: float, kick_dy: float, gap_dx: float, gap_dy: float) -> void:
+	_line(12.0, 0.0, HAZARD)
+	_profile(kick_dx, 6, HAZARD, func(u: float) -> float: return kick_dy * u * u)
+	var lip := _pen
+	var landing := lip + Vector3(_dir * gap_dx, gap_dy, 0.0)
+	gaps.append([lip, landing])
+	_begin(landing)
+	_line(20.0)
+
+func _goo_fork() -> void:
+	var from := _sec_index
+	var split := _pen
+	var main := _begin(split, from)
+	sections[from].next = main
+	_hill(20.0, -3.0, HAZARD)
+	_line(40.0, 0.0, GOO)
+	_hill(20.0, 3.0, HAZARD)
+	var merge := _pen
+	var layer := _zt
+	var shortcut := _begin(split, from)
+	sections[from].fork = shortcut
+	_zt = layer - SHORTCUT_DEPTH
+	_hill(20.0, 3.0, SHORTCUT)
+	_boost()
+	_line(40.0, 0.0, SHORTCUT)
+	_zt = layer
+	_hill(20.0, -3.0, SHORTCUT)
+	var rest := _begin(merge, main)
+	sections[main].next = rest
+	sections[shortcut].next = rest
+	forks.append(split)
+	_line(10.0)
+
+func _other_layer() -> float:
+	return 0.0 if is_equal_approx(_layer_z, BACK_Z) else BACK_Z
+
+func _uturn(steps := 24) -> void:
+	uturns += 1
+	var start := _pen
+	var target := _other_layer()
+	var side := signf(target - start.z)
+	for i in range(1, steps + 1):
+		var th := PI * i / steps
+		var p := Vector3(start.x + _dir * UTURN_RADIUS * sin(th), start.y + UTURN_RISE * i / steps, start.z + side * UTURN_RADIUS * (1.0 - cos(th)))
+		var tangent := Vector3(_dir * cos(th), 0.0, side * sin(th))
+		_add(p, tangent.cross(Vector3.UP).normalized(), TURN, 0, false)
+	_dir = -_dir
+	_layer_z = target
+	_zt = target
+
+func _launch(steps := 10) -> void:
+	var start := _pen
+	var target := _other_layer()
+	for i in range(1, steps + 1):
+		var ph := PI / 2.0 * i / steps
+		var p := Vector3(start.x + _dir * LAUNCH_RADIUS * sin(ph), start.y + LAUNCH_RADIUS * (1.0 - cos(ph)), lerpf(start.z, target, float(i) / steps))
+		_add(p, Vector3(0, 0, _dir), TURN, _dir)
+	for i in 2:
+		_add(_pen + Vector3(0, LAUNCH_RISE / 2.0, 0), Vector3(0, 0, _dir), TURN, _dir)
+	var lip := _pen
+	launches.append(lip)
+	_begin(Vector3(lip.x + _dir * LAUNCH_OVERHANG, lip.y + LAUNCH_CLEARANCE, target))
+	_dir = -_dir
+	_layer_z = target
+	_zt = target
+	_sec.binormals[0] = Vector3(0, 0, _dir)
+
+# --- Path queries -----------------------------------------------------------
+
+func _finalize(sec: Section) -> void:
+	var n := sec.points.size()
+	sec.cum.resize(n)
+	sec.tangents.resize(n)
+	sec.normals.resize(n)
+	sec.curvature.resize(n)
+	sec.seg_tangents.resize(n - 1)
+	sec.seg_normals.resize(n - 1)
+	var lengths := PackedFloat32Array()
+	lengths.resize(n - 1)
+	sec.cum[0] = 0.0
+	for k in n - 1:
+		var d := sec.points[k + 1] - sec.points[k]
+		lengths[k] = maxf(d.length(), 0.001)
+		sec.seg_tangents[k] = d / lengths[k]
+		var b := (sec.binormals[k] + sec.binormals[k + 1]).normalized()
+		sec.seg_normals[k] = b.cross(sec.seg_tangents[k]).normalized()
+		sec.cum[k + 1] = sec.cum[k] + lengths[k]
+	sec.length = sec.cum[n - 1]
+	for k in n:
+		var t: Vector3
+		if k == 0:
+			t = sec.seg_tangents[0]
+		elif k == n - 1:
+			t = sec.seg_tangents[n - 2]
+		else:
+			t = (sec.seg_tangents[k - 1] + sec.seg_tangents[k]).normalized()
+		sec.tangents[k] = t
+		sec.normals[k] = sec.binormals[k].cross(t).normalized()
+		sec.curvature[k] = 0.0
+		if k > 0 and k < n - 1:
+			sec.curvature[k] = (sec.seg_tangents[k] - sec.seg_tangents[k - 1]).dot(sec.normals[k]) / ((lengths[k - 1] + lengths[k]) * 0.5)
+
+func _resolve(spot: Dictionary) -> void:
+	var smp := sample(spot.sec, spot.s)
+	spot.pos = smp.pos
+	var flat := Vector3(smp.t.x, 0.0, smp.t.z)
+	spot.t = flat.normalized() if flat.length() > 0.01 else Vector3.RIGHT
+	spot.n = smp.n
+
+## Rail point, smoothed tangent/normal/binormal, curvature and segment data at
+## arc length `s` along section `index`.
+func sample(index: int, s: float) -> Dictionary:
+	var sec: Section = sections[index]
+	s = clampf(s, 0.0, sec.length)
+	var k := clampi(sec.cum.bsearch(s) - 1, 0, sec.points.size() - 2)
+	var span := sec.cum[k + 1] - sec.cum[k]
+	var u := clampf((s - sec.cum[k]) / span, 0.0, 1.0) if span > 0.0 else 0.0
+	return {
+		"pos": sec.points[k].lerp(sec.points[k + 1], u),
+		"t": sec.tangents[k].lerp(sec.tangents[k + 1], u).normalized(),
+		"n": sec.normals[k].lerp(sec.normals[k + 1], u).normalized(),
+		"b": sec.binormals[k].lerp(sec.binormals[k + 1], u).normalized(),
+		"seg_t": sec.seg_tangents[k],
+		"curv": lerpf(sec.curvature[k], sec.curvature[k + 1], u),
+		"kind": sec.kinds[k],
+		"drive": sec.drives[k],
+		"landable": sec.landable[k] == 1,
+	}
+
+func spawn(gate_index: int) -> Dictionary:
+	return start_spot if gate_index < 0 else gates[gate_index]
+
+func boost_between(index: int, s0: float, s1: float) -> bool:
+	for pad in boosts:
+		if pad.sec == index and minf(s0, s1) < pad.s and pad.s <= maxf(s0, s1):
+			return true
+	return false
+
+func crossed(spot: Dictionary, from: Vector3, to: Vector3) -> bool:
+	var d0: float = (from - spot.pos).dot(spot.t)
+	var d1: float = (to - spot.pos).dot(spot.t)
+	return d0 < 0.0 and d1 >= 0.0 and ((to - spot.pos) - spot.t * d1).length() < 6.0
+
+func out_of_bounds(where: Vector3) -> bool:
+	return where.y < bounds.position.y - 25.0 or where.x < bounds.position.x - 40.0 or where.x > bounds.end.x + 40.0
+
+func _index_landing() -> void:
+	for i in sections.size():
+		var sec: Section = sections[i]
+		for k in sec.points.size() - 1:
+			if sec.landable[k] == 0:
+				continue
+			var id := _land_sec.size()
+			_land_sec.append(i)
+			_land_k.append(k)
+			var lo := floori(minf(sec.points[k].x, sec.points[k + 1].x) / CELL)
+			var hi := floori(maxf(sec.points[k].x, sec.points[k + 1].x) / CELL)
+			for c in range(lo, hi + 1):
+				if not _cells.has(c):
+					_cells[c] = PackedInt32Array()
+				_cells[c].append(id)
+
+## One-way landing test: the wheel (radius r) must cross a rail's offset line
+## from above while moving into it. Rising through a rail from below is free.
+func find_landing(from: Vector3, to: Vector3, velocity: Vector3, r: float) -> Dictionary:
+	var best := 2.0
+	var hit := {}
+	var lo_x := minf(from.x, to.x) - r - 0.5
+	var hi_x := maxf(from.x, to.x) + r + 0.5
+	var lo_y := minf(from.y, to.y) - r - 0.5
+	var hi_y := maxf(from.y, to.y) + r + 0.5
+	var seen := {}
+	var p0 := Vector2(from.x, from.y)
+	var p1 := Vector2(to.x, to.y)
+	for c in range(floori(lo_x / CELL), floori(hi_x / CELL) + 1):
+		for id in _cells.get(c, PackedInt32Array()):
+			if seen.has(id):
+				continue
+			seen[id] = true
+			var sec: Section = sections[_land_sec[id]]
+			var k := _land_k[id]
+			var a := sec.points[k]
+			var b := sec.points[k + 1]
+			if maxf(a.x, b.x) < lo_x or minf(a.x, b.x) > hi_x or maxf(a.y, b.y) < lo_y or minf(a.y, b.y) > hi_y:
+				continue
+			if absf((a.z + b.z) * 0.5 - to.z) > LAND_Z_TOLERANCE:
+				continue
+			var n3 := sec.seg_normals[k]
+			var n := Vector2(n3.x, n3.y)
+			if n.length() < 0.5:
+				continue
+			n = n.normalized()
+			if velocity.x * n.x + velocity.y * n.y >= 0.0:
+				continue
+			var a2 := Vector2(a.x, a.y) + n * r
+			var b2 := Vector2(b.x, b.y) + n * r
+			var d0 := (p0 - a2).dot(n)
+			var d1 := (p1 - a2).dot(n)
+			if d0 < -0.2 or d1 >= 0.0:
+				continue
+			var f := clampf(d0 / (d0 - d1), 0.0, 1.0) if d0 > 0.0 else 0.0
+			var h := p0.lerp(p1, f)
+			var seg := b2 - a2
+			var u := (h - a2).dot(seg) / seg.length_squared()
+			if u < -0.03 or u > 1.03 or f >= best:
+				continue
+			best = f
+			hit = {"sec": _land_sec[id], "s": sec.cum[k] + clampf(u, 0.0, 1.0) * (sec.cum[k + 1] - sec.cum[k]), "f": f}
+	return hit
+
+# --- Visuals ----------------------------------------------------------------
+
+func _paint(color: Color, emission := 0.0) -> StandardMaterial3D:
+	var paint := StandardMaterial3D.new()
+	paint.albedo_color = color
+	paint.metallic = 0.25
+	paint.roughness = 0.3
+	if emission > 0.0:
+		paint.emission_enabled = true
+		paint.emission = color
+		paint.emission_energy_multiplier = emission
+	return paint
 
 func _build_rail() -> void:
 	var paint := StandardMaterial3D.new()
@@ -70,57 +497,95 @@ func _build_rail() -> void:
 	tube.top_radius = RAIL_RADIUS
 	tube.bottom_radius = RAIL_RADIUS
 	tube.height = 1.0
-	tube.radial_segments = 20
+	tube.radial_segments = 16
 	tube.rings = 1
 	tube.material = paint
 	var joint := SphereMesh.new()
 	joint.radius = RAIL_RADIUS
 	joint.height = RAIL_RADIUS * 2.0
+	joint.radial_segments = 12
+	joint.rings = 6
 	joint.material = paint
-	var stripes: Array[Transform3D] = []
-	var joints := {}
-	var drop := Vector3.DOWN * RAIL_RADIUS
-	for i in _built_segments():
-		var a := POINTS[i] + drop
-		var b := POINTS[i + 1] + drop
-		var length := a.distance_to(b)
-		var count := maxi(1, roundi(length / STRIPE_LENGTH))
-		var dir := (b - a) / length
-		var axis := Basis(dir.cross(Vector3.BACK).normalized(), dir * (length / count), Vector3.BACK)
-		for k in count:
-			stripes.append(Transform3D(axis, a + dir * (length * (k + 0.5) / count)))
-		joints[a] = true
-		joints[b] = true
-	var rail := MultiMeshInstance3D.new()
-	rail.name = "Rail"
-	rail.multimesh = _multimesh(tube, stripes, true)
-	add_child(rail)
-	var joint_transforms: Array[Transform3D] = []
-	for point: Vector3 in joints:
-		joint_transforms.append(Transform3D(Basis.IDENTITY, point))
-	var caps := MultiMeshInstance3D.new()
-	caps.name = "RailJoints"
-	caps.multimesh = _multimesh(joint, joint_transforms, false)
-	add_child(caps)
+	var chevron := PrismMesh.new()
+	chevron.size = Vector3.ONE
+	chevron.material = _paint(Color(0.95, 0.97, 1.0), 0.6)
+	var goo := SphereMesh.new()
+	goo.radius = 0.5
+	goo.height = 1.0
+	goo.radial_segments = 10
+	goo.rings = 5
+	var goo_paint := _paint(Color(0.35, 1.0, 0.2), 0.35)
+	goo_paint.roughness = 0.05
+	goo.material = goo_paint
+	var stripes: Array = []
+	var joints: Array = []
+	var arrows: Array = []
+	var blobs: Array = []
+	for sec: Section in sections:
+		var stripe_index := 0
+		var last_color: Color = KIND_COLORS[sec.kinds[0]][0]
+		joints.append([Transform3D(Basis.IDENTITY, sec.points[0] - sec.normals[0] * RAIL_RADIUS), last_color])
+		var next_arrow := 3.0
+		for k in sec.points.size() - 1:
+			var a := sec.points[k]
+			var b := sec.points[k + 1]
+			var t := sec.seg_tangents[k]
+			var n := sec.seg_normals[k]
+			var length := sec.cum[k + 1] - sec.cum[k]
+			var count := maxi(1, roundi(length / STRIPE_LENGTH))
+			var kind := sec.kinds[k]
+			var axis := Basis(n, t * (length / count), n.cross(t).normalized())
+			for j in count:
+				var u := (j + 0.5) / count
+				last_color = KIND_COLORS[kind][stripe_index % 2]
+				stripes.append([Transform3D(axis, a.lerp(b, u) - n * RAIL_RADIUS), last_color])
+				stripe_index += 1
+			joints.append([Transform3D(Basis.IDENTITY, b - sec.normals[k + 1] * RAIL_RADIUS), last_color])
+			while next_arrow < sec.cum[k + 1]:
+				var u := (next_arrow - sec.cum[k]) / length
+				next_arrow += CHEVRON_SPACING
+				var side := t.cross(Vector3.BACK)
+				if side.length() < 0.3:
+					continue
+				side = side.normalized()
+				var up := Vector3.BACK.cross(side)
+				var face := a.lerp(b, u) - n * RAIL_RADIUS + Vector3.BACK * (RAIL_RADIUS + 0.03)
+				arrows.append([Transform3D(Basis(side * 0.5, up * 0.42, Vector3.BACK * 0.04), face), Color.WHITE])
+			if kind == GOO:
+				var blob_count := maxi(1, roundi(length / 2.5))
+				for j in blob_count:
+					var spot := a.lerp(b, (j + 0.5) / blob_count) + n * 0.05
+					var basis := Basis(t * 1.4, n * 0.35, n.cross(t).normalized() * 1.3)
+					blobs.append([Transform3D(basis, spot), Color.WHITE])
+	_add_multimesh("Rail", tube, stripes)
+	_add_multimesh("RailJoints", joint, joints)
+	_add_multimesh("Chevrons", chevron, arrows)
+	_add_multimesh("Goo", goo, blobs)
 
-func _multimesh(mesh: Mesh, transforms: Array[Transform3D], striped: bool) -> MultiMesh:
+func _add_multimesh(node_name: String, mesh: Mesh, items: Array) -> void:
 	var multi := MultiMesh.new()
 	multi.transform_format = MultiMesh.TRANSFORM_3D
 	multi.use_colors = true
 	multi.mesh = mesh
-	multi.instance_count = transforms.size()
-	for i in transforms.size():
-		multi.set_instance_transform(i, transforms[i])
-		multi.set_instance_color(i, (STRIPE_COLORS[i % 2] if striped else STRIPE_COLORS[1]).srgb_to_linear())
-	return multi
+	multi.instance_count = items.size()
+	for i in items.size():
+		multi.set_instance_transform(i, items[i][0])
+		multi.set_instance_color(i, (items[i][1] as Color).srgb_to_linear())
+	var node := MultiMeshInstance3D.new()
+	node.name = node_name
+	node.multimesh = multi
+	add_child(node)
 
 func _build_collision() -> void:
 	var faces := PackedVector3Array()
-	var front := Vector3.BACK * COLLISION_HALF_DEPTH
-	for i in _built_segments():
-		var a := POINTS[i]
-		var b := POINTS[i + 1]
-		faces.append_array([a - front, a + front, b - front, a + front, b + front, b - front])
+	for sec: Section in sections:
+		for k in sec.points.size() - 1:
+			if sec.landable[k] == 0:
+				continue
+			var a := sec.points[k]
+			var b := sec.points[k + 1]
+			var side := sec.seg_normals[k].cross(sec.seg_tangents[k]).normalized() * COLLISION_HALF_DEPTH
+			faces.append_array([a - side, a + side, b - side, a + side, b + side, b - side])
 	var shape := ConcavePolygonShape3D.new()
 	shape.set_faces(faces)
 	shape.backface_collision = true
@@ -133,10 +598,8 @@ func _build_collision() -> void:
 	add_child(ground)
 
 func _build_backdrop() -> void:
-	var start_x := POINTS[0].x
-	var end_x := POINTS[POINTS.size() - 1].x
 	var quad := QuadMesh.new()
-	quad.size = Vector2(end_x - start_x + 400.0, 260.0)
+	quad.size = Vector2(bounds.size.x + 400.0, bounds.size.y + 260.0)
 	var material := ShaderMaterial.new()
 	material.shader = Shader.new()
 	material.shader.code = BACKDROP_SHADER
@@ -145,25 +608,14 @@ func _build_backdrop() -> void:
 	backdrop.mesh = quad
 	backdrop.material_override = material
 	backdrop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	backdrop.position = Vector3((start_x + end_x) * 0.5, 20.0, -30.0)
+	backdrop.position = Vector3(bounds.get_center().x, bounds.get_center().y, BACK_Z - 35.0)
 	add_child(backdrop)
 
-func _add_gate(index: int, node_name: String, text: String, color: Color) -> Area3D:
-	var gate := Area3D.new()
+func _add_gate(spot: Dictionary, node_name: String, text: String, color: Color) -> Node3D:
+	var gate := Node3D.new()
 	gate.name = node_name
-	gate.position = POINTS[index]
-	var collision := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(1.2, 7.0, 4.0)
-	collision.shape = box
-	collision.position.y = 2.5
-	gate.add_child(collision)
-	var paint := StandardMaterial3D.new()
-	paint.albedo_color = color
-	paint.emission_enabled = true
-	paint.emission = color * 0.35
-	paint.metallic = 0.25
-	paint.roughness = 0.35
+	gate.position = spot.pos
+	var paint := _paint(color, 0.35)
 	for part in [[Vector3(0.3, 6.4, 0.3), Vector3(0, 2.8, -1.6)], [Vector3(0.3, 0.3, 3.5), Vector3(0, 5.9, 0)]]:
 		var piece := MeshInstance3D.new()
 		var mesh := BoxMesh.new()
@@ -184,11 +636,34 @@ func _add_gate(index: int, node_name: String, text: String, color: Color) -> Are
 	add_child(gate)
 	return gate
 
-func heading(index: int) -> Vector3:
-	return (POINTS[min(index + 1, POINTS.size() - 1)] - POINTS[index]).normalized()
+func _add_boost_pad(pad: Dictionary) -> void:
+	var smp := sample(pad.sec, pad.s)
+	var t: Vector3 = smp.seg_t
+	var n: Vector3 = smp.n
+	var node := MeshInstance3D.new()
+	node.name = "BoostPad"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(3.0, 0.12, 1.6)
+	node.mesh = mesh
+	node.material_override = _paint(Color(1.0, 0.55, 0.05), 2.5)
+	node.transform = Transform3D(Basis(t, n, t.cross(n).normalized()), smp.pos + n * 0.06)
+	add_child(node)
+	for k in 2:
+		var arrow := MeshInstance3D.new()
+		var prism := PrismMesh.new()
+		prism.size = Vector3(0.9, 0.7, 0.05)
+		arrow.mesh = prism
+		arrow.material_override = _paint(Color(1.0, 0.95, 0.3), 3.0)
+		var side := t.cross(n).normalized()
+		arrow.transform = Transform3D(Basis(side, t, n), smp.pos + n * 0.14 + t * (k * 0.9 - 0.45))
+		add_child(arrow)
 
-func spawn_at(index: int, offset: float) -> Vector3:
-	return POINTS[index] + heading(index) * offset + Vector3.UP * 1.0
-
-func out_of_bounds(where: Vector3) -> bool:
-	return where.x < POINTS[0].x - 5.0 or where.x > POINTS[POINTS.size() - 1].x + 5.0
+func _add_sign(at: Vector3, text: String, color: Color) -> void:
+	var label := Label3D.new()
+	label.text = text
+	label.font_size = 80
+	label.pixel_size = 0.014
+	label.outline_size = 16
+	label.modulate = color
+	label.position = at + Vector3(0, 5.0, 0)
+	add_child(label)

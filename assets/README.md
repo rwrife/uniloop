@@ -16,6 +16,6 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 |---|---|---|---|---|
 | `AppStore/icon.png` | 2D Icon | `ai-generated` | spark-media image (gpt-image-2.5-flare, 1024x1024 RGB) | Accepted |
 | `scripts/wheel_rider.gd` | 3D Vehicle | `primitive` | Godot TorusMesh tire, BoxMesh spokes/fork, CapsuleMesh seat with PBR materials | Active placeholder; mesh pipeline pending #4 |
-| `scripts/canyon.gd` (gate) | 3D Prop | `primitive` | Godot BoxShape3D trigger with BoxMesh post/beam and Label3D number | Active placeholder |
-| `scripts/canyon.gd` (rail) | 3D Course | `primitive` | MultiMesh CylinderMesh red/blue striped rail with ConcavePolygonShape3D top-surface collision | Active placeholder |
+| `scripts/canyon.gd` (gate) | 3D Prop | `primitive` | BoxMesh post/beam and Label3D number with direction arrow; crossing detected along the course path in code | Active placeholder |
+| `scripts/canyon.gd` (rail) | 3D Course | `primitive` | MultiMesh CylinderMesh rail striped by track kind (blue/green, red/blue, yellow/orange, red/yellow), white PrismMesh chevrons, green SphereMesh goo, emissive BoxMesh boost pads; one-way landing is path math, ConcavePolygonShape3D kept for queries | Active placeholder |
 | `scripts/canyon.gd` (backdrop) | 3D Background | `procedural` | Unshaded spatial shader of geometric triangles/diamonds on a QuadMesh | Active placeholder |
