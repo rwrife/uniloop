@@ -6,7 +6,7 @@ Offline 3D momentum-racing game for players who like mastering a single-wheel ma
 
 ## Why and for whom
 
-Arcade racers often gate progress behind accounts, currency, or ads. Uniloop is a self-contained skill game for solo racers. A run starts at a course gate, lets the player accelerate/brake, lean and jump through banked turns, then judges completion time and trick/landing quality. Unlock a harder course by finishing earlier ones; replay with split times, local records and repeatable ghost inputs. No licensed brands, copyrighted tracks, or imported characters.
+Arcade racers often gate progress behind accounts, currency, or ads. Uniloop is a self-contained skill game for solo racers. It is a high-speed 2.5D side-scroller: a 3D-rendered unicycle races left-to-right along a striped rail viewed side-on. A run starts at a course gate, lets the player accelerate/brake, jump gaps and flip in the air, then judges completion time and trick/landing quality. Unlock a harder course by finishing earlier ones; replay with split times, local records and repeatable ghost inputs. No licensed brands, copyrighted tracks, or imported characters.
 
 ## Intended workflow and MVP
 

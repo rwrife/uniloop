@@ -5,7 +5,7 @@ extends Control
 const PRACTICE_SCENE := "res://scenes/practice.tscn"
 const SAVE_PATH := "user://uniloop.json"
 const COURSES := [
-	{"id": "canyon_ribbon", "title": "Canyon Ribbon", "desc": "Winding canyon drop with step-down gaps"},
+	{"id": "canyon_ribbon", "title": "Canyon Ribbon", "desc": "High-speed side-scrolling rail run with three jump gaps"},
 	{"id": "neon_night", "title": "Neon Night Loop", "desc": "High-speed banked loops (coming soon)"},
 	{"id": "rooftop_line", "title": "Rooftop Line", "desc": "Precision gap riding (coming soon)"},
 ]
@@ -245,14 +245,15 @@ func _on_rebind_pressed(action: StringName, button: Button) -> void:
 func _open_help() -> void:
 	_prepare_subpanel("HOW TO PLAY & ACCESSIBILITY")
 	var lines: Array[String] = [
-		"RACE GOAL: Build momentum, pump transitions, clear gaps, cross every gate in sequence.",
-		"LANDING BANDS: Perfect landing (<6 m/s vertical, <12 deg bank) gives +150 score and builds streak multiplier.",
-		"RESETS: Falling off track resets to last crossed gate with a +3s penalty.",
+		"RACE GOAL: Build speed along the striped rail, jump the gaps, and cross every numbered gate in order.",
+		"LANDING BANDS: Perfect landing (<6 m/s impact, <12 deg off the rail angle) gives +200 score and builds streak multiplier.",
+		"FLIPS: Tilt forward/back in the air to flip. Land level with the rail for +500 per flip; land badly and you wipe out.",
+		"RESETS: Falling through a gap resets to the last crossed gate with a +3s penalty.",
 		"DEVICE GLYPHS:",
 		"  Accelerate: %s" % UniloopUI.prompt(&"accelerate", current_device),
 		"  Brake:      %s" % UniloopUI.prompt(&"brake", current_device),
-		"  Lean Left:  %s" % UniloopUI.prompt(&"lean_left", current_device),
-		"  Lean Right: %s" % UniloopUI.prompt(&"lean_right", current_device),
+		"  Tilt Back:  %s" % UniloopUI.prompt(&"lean_left", current_device),
+		"  Tilt Fwd:   %s" % UniloopUI.prompt(&"lean_right", current_device),
 		"  Jump/Pump:  %s" % UniloopUI.prompt(&"jump", current_device),
 		"  Pause/Menu: %s" % UniloopUI.prompt(&"pause", current_device),
 		"ACCESSIBILITY: High-contrast mode, text scaling up to 150%, reduced motion, and full remapping available in Settings.",

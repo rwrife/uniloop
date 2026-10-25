@@ -9,8 +9,8 @@ func test_handling_resource_has_valid_ranges() -> void:
 	var h: WheelHandling = HANDLING.new()
 	assert_gt(h.acceleration, 0.0)
 	assert_gt(h.max_speed, h.reverse_speed)
-	assert_gt(h.grip, 0.0)
-	assert_gt(h.bank_grip_bonus, 0.0)
+	assert_gt(h.overspeed, 1.0)
+	assert_gt(h.spin_rate, 0.0)
 	assert_gt(h.jump_speed, 0.0)
 	assert_gt(h.pump_boost, 0.0)
 	assert_gt(h.wheel_radius, 0.0)
@@ -93,6 +93,54 @@ func test_track_collision_shape_is_registered() -> void:
 		PhysicsRayQueryParameters3D.create(Vector3(0, 5, 2), Vector3(0, -5, 2)))
 	assert_true(hit.has("collider"), "ribbon collision must be queryable")
 	assert_gt((hit["normal"] as Vector3).y, 0.9)
+
+func test_course_gaps_have_no_collision_and_gates_avoid_gaps() -> void:
+	var scene: PackedScene = load("res://scenes/practice.tscn")
+	var practice: Node3D = scene.instantiate()
+	add_child_autofree(practice)
+	await get_tree().physics_frame
+	var course: CanyonCourse = practice.course
+	assert_not_null(course.get_node_or_null("Rail"))
+	assert_not_null(course.get_node_or_null("Backdrop"))
+	for gap in course.GAPS:
+		assert_false(course.GATES.has(gap + 1) or course.GATES.has(gap), "gate %d must not sit on a gap edge" % gap)
+		var mid: Vector3 = (course.POINTS[gap] + course.POINTS[gap + 1]) * 0.5
+		var hit: Dictionary = practice.get_world_3d().direct_space_state.intersect_ray(
+			PhysicsRayQueryParameters3D.create(mid + Vector3(0, 6, 0), mid + Vector3(0, -6, 0)))
+		assert_false(hit.has("collider"), "gap %d must be open" % gap)
+
+func test_side_scroll_camera_and_rider_stay_in_plane() -> void:
+	var scene: PackedScene = load("res://scenes/practice.tscn")
+	var practice: Node3D = scene.instantiate()
+	add_child_autofree(practice)
+	var wheel: WheelRider = practice.rider
+	Input.action_press(&"accelerate")
+	for tick in 90:
+		await get_tree().physics_frame
+	Input.action_release(&"accelerate")
+	await get_tree().process_frame
+	var camera: Camera3D = practice.get_node("Camera")
+	assert_almost_eq(wheel.global_position.z, 0.0, 0.001, "rider is locked to the side-scroll plane")
+	assert_gt(wheel.global_position.x, 5.0, "rider moves along +X")
+	assert_almost_eq((-camera.global_basis.z).dot(Vector3.FORWARD), 1.0, 0.001, "camera looks side-on")
+	assert_almost_eq(camera.global_position.x, wheel.global_position.x, 10.0, "camera tracks rider horizontally")
+
+func test_flip_landing_counts_rotation_and_tilt() -> void:
+	var scene: PackedScene = load("res://scenes/practice.tscn")
+	var practice: Node3D = scene.instantiate()
+	add_child_autofree(practice)
+	var wheel: WheelRider = practice.rider
+	for tick in 60:
+		await get_tree().physics_frame
+	wheel.reset_at(Vector3(20, 3, 0), Vector3.RIGHT)
+	wheel.air_spin = -TAU
+	wheel.rotation.z = -TAU
+	for tick in 60:
+		await get_tree().physics_frame
+		if wheel.last_flips > 0:
+			break
+	assert_eq(wheel.last_flips, 1, "full rotation in the air counts as a flip")
+	assert_lt(wheel.bank_angle, 12.0, "level landing after a full flip")
 
 func test_finish_requires_every_gate_and_records_medal() -> void:
 	var scene: PackedScene = load("res://scenes/practice.tscn")

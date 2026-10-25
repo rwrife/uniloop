@@ -6,6 +6,8 @@ const HANDLING := preload("res://scripts/handling.gd")
 const COURSE := preload("res://scripts/canyon.gd")
 const RIDER := preload("res://scripts/wheel_rider.gd")
 const ACTIONS: Array[StringName] = [&"lean_left", &"brake", &"accelerate", &"lean_right", &"jump"]
+const FLIP_SCORE := 500
+const CAMERA_TRACK_X := 12.0
 var course: CanyonCourse
 var rider: WheelRider
 var rules: RaceRules
@@ -117,6 +119,7 @@ func _ready() -> void:
 	add_child(rider)
 	rules = RaceRules.new(course.GATES.size())
 	rider.reset_at(course.spawn_at(0, rider.handling.reset_offset), course.heading(0))
+	_snap_camera()
 	for i in course.gate_areas.size():
 		course.gate_areas[i].body_entered.connect(_on_checkpoint.bind(i))
 	course.finish_area.body_entered.connect(_on_finish)
@@ -142,25 +145,34 @@ func _physics_process(delta: float) -> void:
 	rules.tick(ms)
 	_milliseconds -= ms
 	if rider.last_landing == "landed":
-		_message = "Landing: %s" % rules.land(rider.vertical_speed_before_landing, rider.bank_angle)
+		var quality := rules.land(rider.vertical_speed_before_landing, rider.bank_angle)
+		_message = "Landing: %s" % quality
+		if rider.last_flips > 0 and quality != "rough":
+			rules.score += FLIP_SCORE * rider.last_flips
+			_message += " • %dx FLIP +%d" % [rider.last_flips, FLIP_SCORE * rider.last_flips]
+		elif rider.bank_angle > rider.handling.crash_angle:
+			_message = "WIPEOUT! Land level with the rail"
 		_landing_shake = 0.14 if not SaveStore.get_settings(save).reduced_shake else 0.0
 		rider.last_landing = ""
-	if rider.global_position.y < rider.handling.fall_height or absf(rider.global_position.x) > rider.handling.course_bound_x or rider.global_position.z < rider.handling.course_end_z:
+	if rider.global_position.y < rider.handling.fall_height or course.out_of_bounds(rider.global_position):
 		_reset()
 
 func _process(delta: float) -> void:
 	if get_tree().paused:
 		return
 	var camera: Camera3D = $Camera
-	# Camera follows rider; pause handled in _input.
-	var behind := rider.global_basis.z * rider.handling.camera_distance
-	var destination := rider.global_position + behind + Vector3.UP * rider.handling.camera_height
+	# Side-on camera tracks horizontally with look-ahead; pause handled in _input.
+	var destination := _camera_target()
+	var cam_pos := camera.global_position
+	cam_pos.x = lerpf(cam_pos.x, destination.x, minf(1.0, delta * CAMERA_TRACK_X))
+	cam_pos.y = lerpf(cam_pos.y, destination.y, minf(1.0, delta * rider.handling.camera_follow))
+	cam_pos.z = destination.z
 	if _landing_shake > 0.0:
-		destination += Vector3(randf_range(-0.15, 0.15), randf_range(-0.1, 0.1), 0.0)
+		cam_pos += Vector3(randf_range(-0.15, 0.15), randf_range(-0.1, 0.1), 0.0)
 		_landing_shake = maxf(0.0, _landing_shake - delta)
-	camera.global_position = camera.global_position.lerp(destination, minf(1.0, delta * rider.handling.camera_follow))
-	camera.look_at(rider.global_position + Vector3.UP, Vector3.UP)
-	var prompt_str := "Accel: %s • Brake: %s • Lean: %s/%s • Jump: %s" % [
+	camera.global_position = cam_pos
+	camera.rotation = Vector3.ZERO
+	var prompt_str := "Accel: %s • Brake: %s • Flip: %s/%s • Jump: %s" % [
 		UniloopUI.prompt(&"accelerate", current_device),
 		UniloopUI.prompt(&"brake", current_device),
 		UniloopUI.prompt(&"lean_left", current_device),
@@ -180,6 +192,7 @@ func _on_checkpoint(body: Node3D, index: int) -> void:
 func _on_finish(body: Node3D) -> void:
 	if body != rider or rider.speed < rider.handling.gate_min_speed or not rules.finish():
 		return
+	rider.auto_brake = true
 	var medal := RaceRules.medal(rules.elapsed_ms, course.MEDALS)
 	SaveStore.record_best(save, "canyon_ribbon", rules.elapsed_ms, medal, rules.score)
 	_message = "FINISHED • %s • %0.2fs" % [medal.to_upper(), rules.elapsed_ms / 1000.0]
@@ -190,7 +203,17 @@ func _reset() -> void:
 	var index := 0 if _last_gate < 0 else course.GATES[_last_gate]
 	rider.reset_at(course.spawn_at(index, rider.handling.reset_offset), course.heading(index))
 	rules.reset_to_checkpoint()
+	_snap_camera()
 	_message = "Reset at gate • +%ds" % (RaceRules.RESET_PENALTY_MS / 1000)
+
+func _camera_target() -> Vector3:
+	var h := rider.handling
+	var lead := h.camera_lead * clampf(rider.velocity.x / h.max_speed, -0.5, 1.0)
+	return Vector3(rider.global_position.x + lead, rider.global_position.y + h.camera_height, h.camera_distance)
+
+func _snap_camera() -> void:
+	$Camera.global_position = _camera_target()
+	$Camera.rotation = Vector3.ZERO
 
 func _apply_safe_area() -> void:
 	var viewport_rect := Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size)
