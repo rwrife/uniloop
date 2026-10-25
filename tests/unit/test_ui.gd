@@ -100,12 +100,14 @@ func test_menu_controls_and_pause_flow() -> void:
 	practice._set_paused(true)
 	assert_true(get_tree().paused)
 	assert_true(practice.pause_panel.visible)
-	practice._open_pause_settings()
-	assert_false(practice.pause_panel.visible)
-	assert_true(practice.settings_panel.visible)
-	practice._open_pause_from_settings()
-	assert_true(practice.pause_panel.visible)
-	assert_false(practice.settings_panel.visible)
+	assert_null(practice.get_node_or_null("Hud/Root/SettingsPanel"), "no settings in the pause menu")
+	var labels: Array[String] = []
+	for b in practice.pause_panel.get_node("Box").get_children():
+		if b is Button:
+			labels.append(b.text)
+			assert_eq(b.get_theme_font("font"), UniloopUI.CHUNKY_FONT, "pause buttons match the menu")
+	assert_eq(labels, ["RESUME", "RESTART RACE", "QUIT RACE"] as Array[String])
+	assert_true(practice.get_node("Hud/Root/PausePanel/Box/Resume").has_focus())
 	practice._set_paused(false)
 	assert_false(get_tree().paused)
 	assert_false(practice.pause_panel.visible)
