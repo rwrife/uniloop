@@ -43,7 +43,7 @@ var time_label: Label
 var score_label: Label
 @onready var pause_panel: PanelContainer = $Hud/Root/PausePanel
 @onready var pause_button: Button = $Hud/Root/Pause
-@onready var settings_panel: PanelContainer = $Hud/Root/SettingsPanel
+var _pause_dim: ColorRect
 var popup: Label
 var stats_panel: PanelContainer
 var finish_fx: FinishFX
@@ -53,18 +53,12 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_handle_touch(event)
 	if event.is_action_pressed(&"pause") and (stats_panel == null or not stats_panel.visible):
-		if settings_panel.visible:
-			_open_pause_from_settings()
-		else:
-			_set_paused(not pause_panel.visible)
+		_set_paused(not pause_panel.visible)
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"ui_cancel"):
-		if settings_panel.visible:
-			_open_pause_from_settings()
-		elif pause_panel.visible:
-			_set_paused(false)
+	if event.is_action_pressed(&"ui_cancel") and pause_panel.visible:
+		_set_paused(false)
 		get_viewport().set_input_as_handled()
 
 func _notification(what: int) -> void:
@@ -73,55 +67,59 @@ func _notification(what: int) -> void:
 
 func _set_paused(enabled: bool) -> void:
 	pause_panel.visible = enabled
-	settings_panel.visible = false
+	_pause_dim.visible = enabled
 	get_tree().paused = enabled
 	if enabled:
 		$Hud/Root/PausePanel/Box/Resume.grab_focus()
+		pause_panel.pivot_offset = pause_panel.size * 0.5
+		pause_panel.scale = Vector2(0.6, 0.6)
+		pause_panel.create_tween().tween_property(pause_panel, "scale", Vector2.ONE, 0.25) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	else:
 		pause_button.grab_focus()
 
-func _open_pause_settings() -> void:
-	pause_panel.visible = false
-	settings_panel.visible = true
-	var settings := SaveStore.get_settings(save)
-	$Hud/Root/SettingsPanel/Box/HighContrast.button_pressed = settings.high_contrast
-	$Hud/Root/SettingsPanel/Box/ReducedShake.button_pressed = settings.reduced_shake
-	$Hud/Root/SettingsPanel/Box/TouchOverlay.button_pressed = settings.touch_overlay
-	$Hud/Root/SettingsPanel/Box/HighContrast.grab_focus()
-
-func _open_pause_from_settings() -> void:
-	settings_panel.visible = false
-	pause_panel.visible = true
-	$Hud/Root/PausePanel/Box/Resume.grab_focus()
-
-func _wire_pause_settings() -> void:
-	$Hud/Root/PausePanel/Box/Settings.pressed.connect(_open_pause_settings)
-	$Hud/Root/SettingsPanel/Box/Back.pressed.connect(_open_pause_from_settings)
-	$Hud/Root/SettingsPanel/Box/HighContrast.toggled.connect(_on_pause_high_contrast)
-	$Hud/Root/SettingsPanel/Box/ReducedShake.toggled.connect(_on_pause_reduced_shake)
-	$Hud/Root/SettingsPanel/Box/TouchOverlay.toggled.connect(_on_pause_touch_overlay)
-
-func _on_pause_high_contrast(enabled: bool) -> void:
-	SaveStore.set_settings(save, {"high_contrast": enabled})
-	SaveStore.save_to_path(save, save_path)
-	$Hud/Root.theme = UniloopUI.create_theme(SaveStore.get_settings(save))
-
-func _on_pause_reduced_shake(enabled: bool) -> void:
-	SaveStore.set_settings(save, {"reduced_shake": enabled})
-	SaveStore.save_to_path(save, save_path)
-
-func _on_pause_touch_overlay(enabled: bool) -> void:
-	SaveStore.set_settings(save, {"touch_overlay": enabled})
-	SaveStore.save_to_path(save, save_path)
-	var existing := $Hud/Root.get_node_or_null("TouchOverlay")
-	if enabled and existing == null and DisplayServer.is_touchscreen_available():
-		_build_touch_overlay()
-		_apply_safe_area()
-	elif not enabled and existing != null:
-		_release_touches()
-		existing.queue_free()
-		_touch_buttons.clear()
-
+## Arcade pause card: dimmed backdrop, wobbling PAUSED title and chunky buttons.
+func _style_pause_panel() -> void:
+	_pause_dim = ColorRect.new()
+	_pause_dim.name = "PauseDim"
+	_pause_dim.color = Color(0.07, 0.01, 0.15, 0.6)
+	_pause_dim.visible = false
+	_pause_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	$Hud/Root.add_child(_pause_dim)
+	$Hud/Root.move_child(_pause_dim, pause_panel.get_index())
+	var card := StyleBoxFlat.new()
+	card.bg_color = Color(0.17, 0.05, 0.31, 0.96)
+	card.border_color = UniloopUI.POP_YELLOW
+	card.set_border_width_all(7)
+	card.set_corner_radius_all(30)
+	card.set_content_margin_all(30)
+	card.content_margin_top = 10
+	card.shadow_color = Color(0, 0, 0, 0.6)
+	card.shadow_size = 14
+	card.shadow_offset = Vector2(0, 10)
+	pause_panel.add_theme_stylebox_override("panel", card)
+	for side in ["offset_left", "offset_right", "offset_top", "offset_bottom"]:
+		pause_panel.set(side, 0.0)
+	var box: VBoxContainer = pause_panel.get_node("Box")
+	box.add_theme_constant_override("separation", 16)
+	var title: Label = box.get_node("Title")
+	var looks := UniloopUI.chunky_label("PAUSED", 84)
+	for prop in ["theme_override_fonts/font", "theme_override_font_sizes/font_size",
+		"theme_override_colors/font_color", "theme_override_colors/font_outline_color",
+		"theme_override_constants/outline_size", "theme_override_colors/font_shadow_color",
+		"theme_override_constants/shadow_offset_x", "theme_override_constants/shadow_offset_y"]:
+		title.set(prop, looks.get(prop))
+	looks.free()
+	var buttons: Array[Button] = []
+	for key in ["Resume", "Restart", "Menu"]:
+		var b: Button = box.get_node(key)
+		UniloopUI.style_chunky(b, 40)
+		b.custom_minimum_size = Vector2(380, 0)
+		buttons.append(b)
+	for i in buttons.size():
+		var b := buttons[i]
+		b.focus_neighbor_top = b.get_path_to(buttons[(i - 1 + buttons.size()) % buttons.size()])
+		b.focus_neighbor_bottom = b.get_path_to(buttons[(i + 1) % buttons.size()])
 func _exit_to_menu() -> void:
 	_release_touches()
 	get_tree().paused = false
@@ -161,7 +159,7 @@ func _ready() -> void:
 	$Hud/Root/PausePanel/Box/Resume.pressed.connect(_set_paused.bind(false))
 	$Hud/Root/PausePanel/Box/Restart.pressed.connect(_restart_course)
 	$Hud/Root/PausePanel/Box/Menu.pressed.connect(_exit_to_menu)
-	_wire_pause_settings()
+	_style_pause_panel()
 	_build_popup()
 	_build_hud()
 	if not result.ok:

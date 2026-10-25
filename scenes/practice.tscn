@@ -88,63 +88,14 @@ horizontal_alignment = 1
 [node name="Resume" type="Button" parent="Hud/Root/PausePanel/Box"]
 custom_minimum_size = Vector2(320, 56)
 layout_mode = 2
-text = "Resume"
+text = "RESUME"
 
 [node name="Restart" type="Button" parent="Hud/Root/PausePanel/Box"]
 custom_minimum_size = Vector2(320, 56)
 layout_mode = 2
-text = "Restart Course"
-
-[node name="Settings" type="Button" parent="Hud/Root/PausePanel/Box"]
-custom_minimum_size = Vector2(320, 56)
-layout_mode = 2
-text = "Settings"
+text = "RESTART RACE"
 
 [node name="Menu" type="Button" parent="Hud/Root/PausePanel/Box"]
 custom_minimum_size = Vector2(320, 56)
 layout_mode = 2
-text = "Exit to Menu"
-
-[node name="SettingsPanel" type="PanelContainer" parent="Hud/Root"]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -160.0
-offset_right = 220.0
-offset_bottom = 160.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Box" type="VBoxContainer" parent="Hud/Root/SettingsPanel"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="Hud/Root/SettingsPanel/Box"]
-layout_mode = 2
-text = "SETTINGS"
-horizontal_alignment = 1
-
-[node name="HighContrast" type="CheckButton" parent="Hud/Root/SettingsPanel/Box"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-text = "High Contrast"
-
-[node name="ReducedShake" type="CheckButton" parent="Hud/Root/SettingsPanel/Box"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-text = "Reduced Camera Shake"
-
-[node name="TouchOverlay" type="CheckButton" parent="Hud/Root/SettingsPanel/Box"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-text = "Touch Buttons"
-
-[node name="Back" type="Button" parent="Hud/Root/SettingsPanel/Box"]
-custom_minimum_size = Vector2(320, 56)
-layout_mode = 2
-text = "Back to Pause"
+text = "QUIT RACE"
