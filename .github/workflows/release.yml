@@ -118,13 +118,22 @@ jobs:
           if ($px.B -gt 200 -and $px.R -lt 80 -and $px.G -lt 130) { throw 'icon still looks like the Godot template default' }
 
       - name: Package zip
+        shell: pwsh
         run: |
-          cp README.md LICENSE build/windows/
-          cp AppStore/description.txt build/windows/AppStore-description.txt
-          (cd build && zip -r -9 "../uniloop-windows-${RELEASE_TAG}.zip" windows)
-          ls -lh "uniloop-windows-${RELEASE_TAG}.zip"
-          test -s "uniloop-windows-${RELEASE_TAG}.zip"
-          unzip -l "uniloop-windows-${RELEASE_TAG}.zip"
+          Copy-Item README.md, LICENSE build/windows/
+          Copy-Item AppStore/description.txt build/windows/AppStore-description.txt
+          $archive = "uniloop-windows-$env:RELEASE_TAG.zip"
+          Compress-Archive -Path build/windows -DestinationPath $archive -CompressionLevel Optimal
+          if ((Get-Item $archive).Length -le 0) { throw 'release zip is empty' }
+          Add-Type -AssemblyName System.IO.Compression
+          $entries = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $archive).Path)
+          try {
+            $names = @($entries.Entries | ForEach-Object FullName)
+            foreach ($expected in @('windows/uniloop.exe', 'windows/uniloop.pck', 'windows/README.md', 'windows/LICENSE', 'windows/AppStore-description.txt')) {
+              if ($expected -notin $names) { throw "release zip missing $expected" }
+            }
+            "Release archive: $archive ($((Get-Item $archive).Length) bytes); entries=$($names -join ', ')"
+          } finally { $entries.Dispose() }
 
       - name: Publish GitHub release
         env:
