@@ -40,14 +40,13 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Status" type="Label" parent="Hud/Root"]
+[node name="Status" type="HBoxContainer" parent="Hud/Root"]
 layout_mode = 0
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 680.0
-offset_bottom = 148.0
-text = "Canyon Ribbon"
-autowrap_mode = 3
+offset_bottom = 96.0
+mouse_filter = 2
 
 [node name="Pause" type="Button" parent="Hud/Root"]
 custom_minimum_size = Vector2(96, 56)
@@ -60,7 +59,7 @@ offset_top = 16.0
 offset_right = -16.0
 offset_bottom = 72.0
 grow_horizontal = 0
-text = "Pause"
+text = "PAUSE"
 
 [node name="PausePanel" type="PanelContainer" parent="Hud/Root"]
 visible = false

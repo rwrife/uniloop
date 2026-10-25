@@ -178,6 +178,19 @@ func test_practice_scene_loads_and_instantiates() -> void:
 	assert_not_null(practice.get_node_or_null("Hud/Root/TrickPopup"))
 	assert_true(practice.rider.grounded)
 
+func test_hud_shows_only_timer_and_points() -> void:
+	var practice := _practice()
+	var hud: Control = practice.get_node("Hud/Root/Status")
+	assert_eq(hud.get_child_count(), 2, "just the timer and points badges")
+	assert_not_null(hud.get_node_or_null("TimeBadge"))
+	assert_not_null(hud.get_node_or_null("ScoreBadge"))
+	for label in practice.get_node("Hud/Root").find_children("*", "Label", true, false):
+		assert_false(String(course_title(practice)) in label.text, "no level name on screen")
+		assert_false("Hop" in label.text or "Tabletop" in label.text, "no control instructions")
+	assert_eq(practice.get_node("Hud/Root/Pause").get_theme_font("font"), UniloopUI.CHUNKY_FONT, "pause matches menu buttons")
+
+func course_title(practice: Node) -> String:
+	return String(practice.course.track.title).to_upper()
 func test_ride_right_crosses_first_gate_side_on() -> void:
 	var practice := _practice()
 	var wheel: WheelRider = practice.rider
