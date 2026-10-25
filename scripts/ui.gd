@@ -101,6 +101,8 @@ static func chunky_button(text: String, size: int, minimum := Vector2.ZERO) -> B
 
 
 static func style_chunky(b: Control, size: int) -> void:
+	if b is Button:
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.add_theme_font_override("font", CHUNKY_FONT)
 	b.add_theme_font_size_override("font_size", size)
 	b.add_theme_color_override("font_color", POP_YELLOW)
@@ -145,6 +147,7 @@ static func style_chunky(b: Control, size: int) -> void:
 static func button(label: String, minimum_width: float = 0.0) -> Button:
 	var b := Button.new()
 	b.text = label
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size = Vector2(minimum_width, 56)
 	b.focus_mode = Control.FOCUS_ALL
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
