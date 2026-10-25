@@ -77,6 +77,12 @@ func _ui_scale() -> float:
 
 
 func _build() -> void:
+	var backdrop := ColorRect.new()
+	backdrop.color = ProjectSettings.get_setting("application/boot_splash/bg_color")
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(backdrop)
+
 	background = TextureRect.new()
 	background.name = "Splash"
 	background.texture = SPLASH
