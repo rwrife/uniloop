@@ -218,6 +218,8 @@ func _ground_step(delta: float) -> void:
 		var sec: CanyonCourse.Section = course.sections[section]
 		if distance > sec.length:
 			var next := sec.next
+			if sec.fork >= 0 and not cruise and Input.is_action_pressed(&"flip_back"):
+				next = sec.fork
 			if next < 0:
 				var lip := course.sample(section, sec.length)
 				_place(lip, delta)

@@ -18,16 +18,14 @@ const KIND_COLORS := [
 	[Color(0.9, 0.08, 0.1), Color(1.0, 0.85, 0.1)],
 ]
 const BACK_Z := -10.0
-## Forks split into two long, unmarked routes that rejoin BRANCH_LENGTH later.
-## "Hop" forks float the alternate rail HOP_HEIGHT above (and BRANCH_Z behind)
-## the main rail; "leap" forks end the main rail at a kicker whose far side
-## needs full speed, while shorter flights drop onto the rail LEAP_DROP below.
+## Forks split at a Y-junction into two long, unmarked routes that rejoin
+## BRANCH_LENGTH later: the upper branch climbs BRANCH_CLIMB while moving
+## BRANCH_Z behind, the lower branch dips BRANCH_DROP, both over BRANCH_SPREAD.
 const BRANCH_LENGTH := 240.0
-const BRANCH_Z := 2.0
-const HOP_HEIGHT := 1.4
-const HOP_WINDOW := 34.0
-const LEAP_GAP := 26.0
-const LEAP_DROP := 7.0
+const BRANCH_Z := 3.0
+const BRANCH_SPREAD := 40.0
+const BRANCH_CLIMB := 5.0
+const BRANCH_DROP := 4.0
 const EASE_LENGTH := 30.0
 const UTURN_RADIUS := 5.0
 const UTURN_RISE := 4.0
@@ -39,6 +37,8 @@ const LOOP_SHIFT := 1.6
 const RIGHT_LEG := 440.0
 const LEFT_LEG := 250.0
 const RAIL_RADIUS := 0.45
+## Goo coats the rail only this much thicker than the bare rail.
+const GOO_THICKNESS := 1.15
 const STRIPE_LENGTH := 2.0
 const CHEVRON_SPACING := 7.0
 const COLLISION_HALF_DEPTH := 2.5
@@ -107,6 +107,8 @@ class Section:
 	var curvature := PackedFloat32Array()
 	var length := 0.0
 	var next := -1
+	## Alternate next section at a junction, taken by holding Up.
+	var fork := -1
 	var prev := -1
 
 ## Which RaceSetup track to build; set before adding the course to the tree.
@@ -120,7 +122,7 @@ var start_spot: Dictionary
 var finish: Dictionary
 var boosts: Array[Dictionary] = []
 var gaps: Array = []
-## {"split", "merge", "routes"} per fork; routes = sections that end at merge.
+## {"split", "merge", "routes", "junction"} per fork; routes = sections that end at merge.
 var forks: Array[Dictionary] = []
 var goo_pits := 0
 var rocket_bumps := 0
@@ -168,6 +170,8 @@ func _ready() -> void:
 	_add_gate(start_spot, "Start", "", Color(0.35, 0.65, 1.0))
 	for pad in boosts:
 		_add_boost_pad(pad)
+	for fork in forks:
+		_add_junction_marker(fork.split)
 
 # --- Layout -----------------------------------------------------------------
 
@@ -346,10 +350,9 @@ func _jump(kick_dx: float, kick_dy: float, gap_dx: float, gap_dy: float) -> void
 	_line(20.0)
 
 ## Splits into two unmarked routes of similar length with different obstacles.
-## Even forks are "hop" forks (the alternate rail floats just above and behind
-## the main rail; hop onto it or stay low); odd forks are "leap" forks (a
-## kicker whose far rail needs full speed; shorter flights drop to the rail
-## below). Both routes rejoin at the merge point.
+## The rail visibly forks at a Y-junction: the upper branch climbs away behind,
+## the lower branch dips in front. Hold Up at the junction for the upper
+## branch; Down (or nothing) keeps you low. Both routes rejoin at the merge.
 func _fork() -> void:
 	var recipes := [["goo_rollers", "climb_gaps"], ["loop_jump", "rollers_jump"], ["rollers_jump", "climb_goo"], ["double_jump", "goo_boost"]]
 	var index := forks.size()
@@ -359,36 +362,21 @@ func _fork() -> void:
 	var layer := _zt
 	var merge := Vector3(split.x + _dir * BRANCH_LENGTH, split.y, layer)
 	var routes: Array[int] = []
-	if index % 2 == 0:
-		var low := _begin(split, from)
-		sections[from].next = low
-		_line(HOP_WINDOW + 6.0)
-		_route(recipe[0])
-		routes.append(_ease_to(merge))
-		_zt = layer - BRANCH_Z
-		_begin(split + Vector3(_dir * 6.0, HOP_HEIGHT, -BRANCH_Z))
-		_line(HOP_WINDOW)
-		_route(recipe[1])
-		routes.append(_ease_to(merge))
-	else:
-		_line(10.0, 0.0, HAZARD)
-		_profile(16.0, 6, HAZARD, func(u: float) -> float: return 3.5 * u * u)
-		var lip := _pen
-		var far := lip + Vector3(_dir * LEAP_GAP, 0.5, 0.0)
-		gaps.append([lip, far])
-		_begin(far)
-		_line(15.0)
-		_route(recipe[0])
-		routes.append(_ease_to(merge))
-		_begin(lip + Vector3(-_dir * 6.0, 1.5 - LEAP_DROP, 0.0))
-		_hill(6.0, -1.5)
-		_line(20.0)
-		_route(recipe[1])
-		routes.append(_ease_to(merge))
+	var low := _begin(split, from)
+	sections[from].next = low
+	_hill(BRANCH_SPREAD, -BRANCH_DROP)
+	_route(recipe[0])
+	routes.append(_ease_to(merge))
+	var high := _begin(split, from)
+	sections[from].fork = high
+	_zt = layer - BRANCH_Z
+	_hill(BRANCH_SPREAD, BRANCH_CLIMB)
+	_route(recipe[1])
+	routes.append(_ease_to(merge))
 	var rest := _begin(merge, routes[0])
 	for route in routes:
 		sections[route].next = rest
-	forks.append({"split": split, "merge": merge, "routes": routes})
+	forks.append({"split": split, "merge": merge, "routes": routes, "junction": from})
 	_line(10.0)
 
 func _route(id: String) -> void:
@@ -692,8 +680,8 @@ func _build_rail() -> void:
 	goo_lump.rings = 5
 	goo_lump.material = goo_paint
 	var drip := CylinderMesh.new()
-	drip.top_radius = 0.28
-	drip.bottom_radius = 0.09
+	drip.top_radius = 0.13
+	drip.bottom_radius = 0.045
 	drip.height = 1.0
 	drip.radial_segments = 8
 	drip.rings = 4
@@ -741,19 +729,25 @@ func _build_rail() -> void:
 			if kind == GOO:
 				var b3 := n.cross(t).normalized()
 				var core := a.lerp(b, 0.5) - n * RAIL_RADIUS
-				var coat_r := RAIL_RADIUS + 0.28
-				coats.append([Transform3D(Basis(n * coat_r * 2.0, t * (length + 0.6), b3 * coat_r * 2.0), core + n * 0.08), Color.WHITE])
-				var lump_count := maxi(1, roundi(length / 1.3))
-				for j in lump_count:
-					var u := (j + 0.5) / lump_count
-					var r := _hash(a + Vector3(j, 0, 0))
-					var spot := a.lerp(b, u) - n * RAIL_RADIUS
-					lumps.append([Transform3D(Basis(t * (1.6 + r), n * (0.9 + r * 0.5), b3 * (1.2 + r * 0.3)), spot + n * (RAIL_RADIUS + 0.05)), Color.WHITE])
-				var drip_count := maxi(1, roundi(length / 1.1))
+				var coat_r := RAIL_RADIUS * GOO_THICKNESS
+				coats.append([Transform3D(Basis(n * coat_r, t * length, b3 * coat_r), core), Color.WHITE])
+				var ball := Basis.IDENTITY.scaled(Vector3.ONE * coat_r * 2.0)
+				lumps.append([Transform3D(ball, b - sec.normals[k + 1] * RAIL_RADIUS), Color.WHITE])
+				var starts := k == 0 or sec.kinds[k - 1] != GOO
+				var ends := k == sec.kinds.size() - 1 or sec.kinds[k + 1] != GOO
+				for edge in [[starts, a, sec.normals[k]], [ends, b, sec.normals[k + 1]]]:
+					if not edge[0]:
+						continue
+					# Rounded, sagging blob where the slime drops off the rail.
+					var tip: Vector3 = edge[1] - edge[2] * RAIL_RADIUS
+					var sag := Basis(t * coat_r * 2.2, Vector3.UP * coat_r * 2.9, b3 * coat_r * 2.2)
+					lumps.append([Transform3D(sag, tip + Vector3.DOWN * coat_r * 0.45), Color.WHITE])
+					drips.append([Transform3D(Basis(t, Vector3.UP * 2.6, b3), tip + Vector3.DOWN * (coat_r + 1.3)), Color(_hash(tip), 0, 0)])
+				var drip_count := maxi(1, roundi(length / 1.6))
 				for j in drip_count:
 					var u := (j + _hash(b + Vector3(j, 1, 0)) * 0.8 + 0.1) / drip_count
-					var hang := 0.8 + 3.2 * pow(_hash(a + Vector3(j, 2, 0)), 1.6)
-					var top := a.lerp(b, u) - n * (RAIL_RADIUS + coat_r * 0.6)
+					var hang := 0.5 + 2.4 * pow(_hash(a + Vector3(j, 2, 0)), 1.8)
+					var top := a.lerp(b, u) - n * (RAIL_RADIUS + coat_r * 0.8)
 					var down := Vector3.DOWN if n.y > 0.3 else -n
 					var side := t.cross(down).normalized()
 					drips.append([Transform3D(Basis(side, -down * hang, side.cross(-down)), top + down * hang * 0.5), Color(_hash(top), 0, 0)])
@@ -875,6 +869,19 @@ func _add_gate(spot: Dictionary, node_name: String, text: String, color: Color) 
 		gate.add_child(label)
 	add_child(gate)
 	return gate
+
+## A neutral up/down sign just before a junction: hold Up or Down to pick.
+func _add_junction_marker(at: Vector3) -> void:
+	var label := Label3D.new()
+	label.name = "Junction"
+	label.text = "▲\n▼"
+	label.font_size = 72
+	label.pixel_size = 0.012
+	label.outline_size = 16
+	label.line_spacing = -18.0
+	label.modulate = Color(1, 1, 1, 0.92)
+	add_child(label)
+	label.global_position = at + Vector3(0, 3.2, 0.6)
 
 func _add_boost_pad(pad: Dictionary) -> void:
 	var smp := sample(pad.sec, pad.s)

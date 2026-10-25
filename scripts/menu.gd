@@ -146,6 +146,8 @@ func _build() -> void:
 	plate.shadow_color = Color(0, 0, 0, 0.5)
 	plate.shadow_size = 12
 	panel.add_theme_stylebox_override("panel", plate)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	safe.add_child(panel)
 	var content := VBoxContainer.new()
 	content.name = "Content"
@@ -253,6 +255,7 @@ func _open(which: String) -> void:
 		"league": _build_league()
 		"options": _build_options()
 		"help": _build_help()
+	_fit_panel()
 	panel_title.add_theme_font_size_override("font_size", int(60 * _ui_scale()))
 	panel_title.pivot_offset = Vector2(panel_title.size.x * 0.5, panel_title.size.y * 0.5)
 	panel_title.scale = Vector2(1.25, 1.25)
@@ -261,6 +264,18 @@ func _open(which: String) -> void:
 	if cards.is_empty():
 		var first := _first_focusable(panel_body)
 		(first if first != null else back_btn).grab_focus()
+
+
+## Centre the panel and cap its size so it never sprawls across big screens.
+func _fit_panel() -> void:
+	var s := _ui_scale()
+	var widths := {"uni": 900.0, "track": 1220.0 if get_viewport_rect().size.x >= 1240 * s else 680.0, "league": 860.0, "options": 820.0, "help": 860.0}
+	var room := get_viewport_rect().size - Vector2(
+		safe.get_theme_constant("margin_left") + safe.get_theme_constant("margin_right"),
+		safe.get_theme_constant("margin_top") + safe.get_theme_constant("margin_bottom"))
+	panel.custom_minimum_size = Vector2(
+		minf(room.x, float(widths.get(screen, 860.0)) * s),
+		minf(room.y, float({"track": 580.0, "uni": 760.0}.get(screen, 860.0)) * s))
 
 
 func _first_focusable(node: Node) -> Control:
@@ -337,7 +352,7 @@ func _build_track_picker() -> void:
 	panel_title.text = "PICK YOUR TRACK"
 	var s := _ui_scale()
 	var grid := GridContainer.new()
-	grid.columns = 4 if get_viewport_rect().size.x >= 1100 * s else 2
+	grid.columns = 4 if get_viewport_rect().size.x >= 1240 * s else 2
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	grid.add_theme_constant_override("h_separation", int(18 * s))
 	grid.add_theme_constant_override("v_separation", int(18 * s))
@@ -542,7 +557,7 @@ func _build_help() -> void:
 	var lines: Array[String] = [
 		"RACE GOAL: Ride the rail through every numbered gate in order. The course zig-zags upward: U-turn helixes and vertical launches flip your direction, so follow the arrows.",
 		"TRACK COLORS: Blue/green = normal rail. Red/blue = loops, U-turns and launches ahead. Red/yellow = jumps, kickers, pitfalls and goo.",
-		"FORKS: The rail splits into two long routes with different obstacles. Hop onto the rail just above you, or clear a kicker at full speed - or stay low. Your call.",
+		"FORKS: The rail splits at a junction into two long routes with different obstacles. Hold Up to take the upper rail, or stay low. Your call.",
 		"GOO: Dripping green slime is forward-only - no brakes, no reverse, no hops, just a slow crawl. Hit the kicker before it at full speed and hop to sail over.",
 		"ROCKET BUMPS: Watch for a short steep curl at the end of a straight. Hit it at speed and it fires you sky-high - hop just before it to skim over.",
 		"ONE-WAY RAILS: You can launch up through the underside of a rail and land on top of it. Fall off and you drop to the rail below - ride back up to where you were.",

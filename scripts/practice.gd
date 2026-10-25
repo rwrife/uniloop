@@ -43,6 +43,7 @@ var _flash: ColorRect
 @onready var settings_panel: PanelContainer = $Hud/Root/SettingsPanel
 var popup: Label
 var stats_panel: PanelContainer
+var finish_fx: FinishFX
 
 func _input(event: InputEvent) -> void:
 	current_device = UniloopUI.device_for(event)
@@ -421,84 +422,186 @@ func _sparks(color: Color, amount: int) -> void:
 	burst.finished.connect(burst.queue_free)
 
 func _build_stats_panel() -> void:
+	finish_fx = FinishFX.new()
+	finish_fx.visible = false
+	$Hud/Root.add_child(finish_fx)
 	stats_panel = PanelContainer.new()
 	stats_panel.name = "StatsPanel"
 	stats_panel.visible = false
 	stats_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	stats_panel.offset_left = -280.0
-	stats_panel.offset_right = 280.0
-	stats_panel.offset_top = -280.0
-	stats_panel.offset_bottom = 260.0
 	stats_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	stats_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	stats_panel.custom_minimum_size = Vector2(640, 0)
 	var card := StyleBoxFlat.new()
-	card.bg_color = Color(0.05, 0.08, 0.15, 0.96)
-	card.border_color = UniloopUI.YELLOW
-	card.set_border_width_all(3)
-	card.set_corner_radius_all(16)
-	card.set_content_margin_all(24)
+	card.bg_color = Color(0.17, 0.05, 0.31, 0.95)
+	card.border_color = UniloopUI.POP_YELLOW
+	card.set_border_width_all(7)
+	card.set_corner_radius_all(30)
+	card.set_content_margin_all(26)
+	card.content_margin_top = 8
+	card.shadow_color = Color(0, 0, 0, 0.6)
+	card.shadow_size = 14
+	card.shadow_offset = Vector2(0, 10)
 	stats_panel.add_theme_stylebox_override("panel", card)
 	var box := VBoxContainer.new()
 	box.name = "Box"
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 6)
 	stats_panel.add_child(box)
-	var title := Label.new()
+	var title := UniloopUI.chunky_label("FINISH!", 92)
 	title.name = "Title"
-	title.text = "COURSE COMPLETE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 34)
-	title.add_theme_color_override("font_color", UniloopUI.YELLOW)
 	box.add_child(title)
+	var track := UniloopUI.chunky_label("", 30, UniloopUI.CYAN)
+	track.name = "Track"
+	track.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(track)
+	var badges := HBoxContainer.new()
+	badges.name = "Badges"
+	badges.alignment = BoxContainer.ALIGNMENT_CENTER
+	badges.add_theme_constant_override("separation", 18)
+	box.add_child(badges)
+	var medal := PanelContainer.new()
+	medal.name = "Medal"
+	badges.add_child(medal)
+	var medal_text := UniloopUI.chunky_label("", 40, UniloopUI.INK)
+	medal_text.name = "Text"
+	medal_text.remove_theme_constant_override("outline_size")
+	medal_text.add_theme_constant_override("shadow_offset_y", 0)
+	medal.add_child(medal_text)
+	var time := UniloopUI.chunky_label("", 52, UniloopUI.WHITE)
+	time.name = "Time"
+	badges.add_child(time)
+	var record := UniloopUI.chunky_label("NEW RECORD!", 34, UniloopUI.POP_PINK)
+	record.name = "Record"
+	record.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(record)
 	var grid := GridContainer.new()
 	grid.name = "Grid"
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 40)
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 22)
+	grid.add_theme_constant_override("v_separation", 0)
 	box.add_child(grid)
-	var again := UniloopUI.button("Ride Again")
+	var hint := UniloopUI.chunky_label("", 24, Color("c9b8ff"))
+	hint.name = "Hint"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint)
+	var buttons := HBoxContainer.new()
+	buttons.name = "Buttons"
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 22)
+	box.add_child(buttons)
+	var again := UniloopUI.chunky_button("RIDE AGAIN!", 36, Vector2(250, 0))
 	again.name = "Again"
 	again.pressed.connect(_restart_course)
-	box.add_child(again)
-	var menu := UniloopUI.button("Main Menu")
+	buttons.add_child(again)
+	var menu := UniloopUI.chunky_button("MAIN MENU", 36, Vector2(250, 0))
 	menu.name = "Menu"
 	menu.pressed.connect(_exit_to_menu)
-	box.add_child(menu)
+	buttons.add_child(menu)
+	again.focus_neighbor_right = again.get_path_to(menu)
+	menu.focus_neighbor_left = menu.get_path_to(again)
 	$Hud/Root.add_child(stats_panel)
 
 func _show_stats() -> void:
 	var s := finish_stats
-	var best := "NEW RECORD!" if _prior_best < 0 or s.time_ms < _prior_best else _format_time(_prior_best)
-	var rows := [
-		["Time", _format_time(s.time_ms)],
-		["Medal", String(s.medal).to_upper()],
-		["Score", str(s.score)],
-		["Stunts landed", str(s.tricks)],
-		["Best combo", "%d trick%s" % [s.best_combo, "" if s.best_combo == 1 else "s"]],
-		["Top speed", "%d km/h" % int(s.top_speed * 3.6)],
-		["Wipeouts", str(s.crashes)],
-		["Falls / resets", str(s.resets)],
-		["Personal best", best],
-	]
+	var record: bool = _prior_best < 0 or s.time_ms < _prior_best
+	var box := stats_panel.get_node("Box")
+	box.get_node("Track").text = String(course.track.title).to_upper()
+	box.get_node("Badges/Time").text = _format_time(s.time_ms)
+	var looks := {
+		"gold": ["GOLD!", Color("ffd60a")],
+		"silver": ["SILVER!", Color("dfe7f2")],
+		"bronze": ["BRONZE!", Color("e08a4a")],
+		"none": ["NO MEDAL", Color("8d7fa6")],
+	}
+	var look: Array = looks.get(String(s.medal), looks.none)
+	var medal: PanelContainer = box.get_node("Badges/Medal")
+	medal.get_node("Text").text = "★ %s" % look[0] if s.medal != "none" else look[0]
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = look[1]
+	plate.border_color = UniloopUI.INK
+	plate.set_border_width_all(5)
+	plate.set_corner_radius_all(40)
+	plate.content_margin_left = 22
+	plate.content_margin_right = 22
+	plate.content_margin_top = 0
+	plate.content_margin_bottom = 0
+	medal.add_theme_stylebox_override("panel", plate)
+	var rec_label: Label = box.get_node("Record")
+	rec_label.text = "NEW RECORD!" if record else "BEST  %s" % _format_time(_prior_best)
+	rec_label.add_theme_color_override("font_color", UniloopUI.POP_PINK if record else Color("c9b8ff"))
+	var next_tier: String = {"none": "bronze", "bronze": "silver", "silver": "gold"}.get(String(s.medal), "")
+	var hint := "%s under %s - go again!" % [next_tier.to_upper(), _format_time(course.medals[next_tier])] if next_tier != "" else ""
 	if not s.saved:
-		rows.append(["Save", "Could not save record"])
-	var grid: GridContainer = stats_panel.get_node("Box/Grid")
+		hint = "Could not save record"
+	box.get_node("Hint").text = hint
+	box.get_node("Hint").visible = hint != ""
+	var rows := [
+		["SCORE", "0"],
+		["STUNTS", str(s.tricks)],
+		["BEST COMBO", "x%d" % s.best_combo],
+		["TOP SPEED", "%d km/h" % int(s.top_speed * 3.6)],
+		["WIPEOUTS", str(s.crashes)],
+		["FALLS", str(s.resets)],
+	]
+	var grid: GridContainer = box.get_node("Grid")
 	for child in grid.get_children():
+		grid.remove_child(child)
 		child.queue_free()
+	var cells: Array[Label] = []
 	for row in rows:
-		for k in 2:
-			var cell := Label.new()
-			cell.text = row[k]
-			if k == 1:
-				cell.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-				cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			grid.add_child(cell)
+		var key := UniloopUI.chunky_label(row[0], 28, UniloopUI.WHITE)
+		var value := UniloopUI.chunky_label(row[1], 32)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		value.custom_minimum_size.x = 110
+		grid.add_child(key)
+		grid.add_child(value)
+		cells.append_array([key, value])
+	finish_fx.start()
 	stats_panel.visible = true
 	pause_button.visible = false
 	status.visible = false
 	popup.visible = false
 	rider.process_mode = Node.PROCESS_MODE_DISABLED
 	rider.visible = false
-	stats_panel.get_node("Box/Again").grab_focus()
-
+	box.get_node("Buttons/Again").grab_focus()
+	# Animate: card slams in, title wobbles, medal pops, rows cascade, score counts up.
+	await get_tree().process_frame
+	stats_panel.pivot_offset = stats_panel.size * 0.5
+	stats_panel.scale = Vector2(0.2, 0.2)
+	stats_panel.rotation = -0.2
+	var t := stats_panel.create_tween().set_parallel()
+	t.tween_property(stats_panel, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(stats_panel, "rotation", 0.0, 0.7).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	var title: Label = box.get_node("Title")
+	title.pivot_offset = title.size * 0.5
+	var wobble := title.create_tween().set_loops()
+	wobble.tween_property(title, "rotation", 0.05, 0.5).set_trans(Tween.TRANS_SINE)
+	wobble.parallel().tween_property(title, "scale", Vector2(1.06, 1.06), 0.5).set_trans(Tween.TRANS_SINE)
+	wobble.tween_property(title, "rotation", -0.05, 0.5).set_trans(Tween.TRANS_SINE)
+	wobble.parallel().tween_property(title, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_SINE)
+	medal.pivot_offset = medal.size * 0.5
+	medal.scale = Vector2.ZERO
+	var pop := medal.create_tween()
+	pop.tween_interval(0.45)
+	pop.tween_property(medal, "scale", Vector2(1.25, 1.25), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pop.tween_property(medal, "scale", Vector2.ONE, 0.18)
+	rec_label.pivot_offset = rec_label.size * 0.5
+	if record:
+		var pulse := rec_label.create_tween().set_loops()
+		pulse.tween_property(rec_label, "scale", Vector2(1.15, 1.15), 0.35).set_trans(Tween.TRANS_SINE)
+		pulse.tween_property(rec_label, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_SINE)
+	for i in cells.size():
+		var cell := cells[i]
+		cell.modulate.a = 0.0
+		var slide := cell.create_tween()
+		slide.tween_interval(0.6 + 0.07 * (i / 2))
+		slide.tween_property(cell, "modulate:a", 1.0, 0.2)
+	var score_cell := cells[1]
+	var count := score_cell.create_tween()
+	count.tween_interval(0.7)
+	count.tween_method(func(v: int) -> void: score_cell.text = str(v), 0, int(s.score), 1.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 # --- Touch --------------------------------------------------------------------
 
 func _apply_safe_area() -> void:

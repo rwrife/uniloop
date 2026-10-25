@@ -69,6 +69,8 @@ func test_forks_offer_two_long_distinct_routes() -> void:
 	for fork in course.forks:
 		assert_eq(fork.routes.size(), 2)
 		assert_gte(absf(fork.merge.x - fork.split.x), 200.0, "routes are long")
+		var split_sec: CanyonCourse.Section = course.sections[fork.junction]
+		assert_gte(split_sec.fork, 0, "rail splits at a junction")
 		var rest: int = course.sections[fork.routes[0]].next
 		assert_eq(course.sections[fork.routes[1]].next, rest, "routes rejoin")
 		var side_by_side := 0
@@ -79,7 +81,7 @@ func test_forks_offer_two_long_distinct_routes() -> void:
 				for k in sec.points.size() - 1:
 					var a: Vector3 = sec.points[k]
 					var b: Vector3 = sec.points[k + 1]
-					if absf(a.z - fork.split.z) < 3.0 and absf(a.y - fork.split.y) < 15.0 and minf(a.x, b.x) <= x and x <= maxf(a.x, b.x):
+					if absf(a.z - fork.split.z) < 3.5 and absf(a.y - fork.split.y) < 15.0 and minf(a.x, b.x) <= x and x <= maxf(a.x, b.x):
 						ys.append(a.y)
 			if ys.size() >= 2:
 				side_by_side += 1
@@ -286,7 +288,7 @@ func test_finish_rolls_off_right_and_shows_stats() -> void:
 			break
 	assert_true(practice.stats_panel.visible, "stats screen appears after the roll-out")
 	assert_gt(wheel.global_position.x, start_x + 5.0, "rider rolls forward off screen, not backward")
-	assert_true(practice.get_node("Hud/Root/StatsPanel/Box/Again").has_focus())
+	assert_true(practice.get_node("Hud/Root/StatsPanel/Box/Buttons/Again").has_focus())
 
 func test_course_gaps_are_open() -> void:
 	var practice := _practice()
