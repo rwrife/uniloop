@@ -176,7 +176,8 @@ func _build() -> void:
 	panel_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel_body.add_theme_constant_override("separation", 10)
 	scroll.add_child(panel_body)
-	back_btn = UniloopUI.chunky_button("◀ BACK", 32)
+	back_btn = UniloopUI.chunky_button("BACK", 32)
+	back_btn.icon = preload("res://assets/ui/back_arrow.svg")
 	back_btn.name = "Back"
 	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	back_btn.pressed.connect(_go_back)
@@ -256,7 +257,7 @@ func _open(which: String) -> void:
 	for child in panel_body.get_children():
 		panel_body.remove_child(child)
 		child.queue_free()
-	back_btn.text = "◀ MENU" if PARENT.get(which, "title") == "title" else "◀ BACK"
+	back_btn.text = "MENU" if PARENT.get(which, "title") == "title" else "BACK"
 	UniloopUI.style_chunky(back_btn, int(30 * _ui_scale()))
 	match which:
 		"uni": _build_uni_picker()
