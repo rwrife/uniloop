@@ -74,6 +74,21 @@ jobs:
           "$GODOT_EXE" --headless --path . --export-release "Windows Desktop" build/windows/uniloop.exe
           ls -la build/windows
           test -s build/windows/uniloop.exe
+      - name: Verify exported icon and metadata
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $exe = (Resolve-Path 'build/windows/uniloop.exe').Path
+          $ver = (Get-Item $exe).VersionInfo
+          if ($ver.ProductName -ne 'Uniloop' -or $ver.CompanyName -ne 'InfinityBall') {
+            throw "Windows metadata patch missing: product=$($ver.ProductName), company=$($ver.CompanyName)"
+          }
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exe)
+          if ($null -eq $icon) { throw 'exported EXE has no associated icon' }
+          $bmp = $icon.ToBitmap()
+          $px = $bmp.GetPixel([int]($bmp.Width / 2), [int]($bmp.Height / 2))
+          "EXE metadata: $($ver.ProductName) / $($ver.CompanyName); icon: $($bmp.Width)x$($bmp.Height), center=$px"
+          if ($px.B -gt 200 -and $px.R -lt 80 -and $px.G -lt 130) { throw 'icon still looks like Godot template default' }
       - uses: actions/upload-artifact@v4
         with:
           name: uniloop-windows

@@ -2,7 +2,7 @@
 
 Offline 3D momentum-racing game for players who like mastering a single-wheel machine: carve original sculpted courses, chain safe landings, and beat local time-trial records on Windows, tablets, and phones.
 
-**Status:** planning scaffold. No playable scene, generated mesh, physics model, exports, CI result, or release exists yet. `project.godot` and export-preset definitions are included; they do not prove build success.
+**Status:** playable Canyon Ribbon practice course, custom adaptive UI, local save/settings, GUT tests, Windows CI export. More courses, generated 3D mesh, mobile exports, and public release pending real verification.
 
 ## Why and for whom
 
@@ -30,6 +30,6 @@ Local `user://` versioned save (course medals, settings, records, optional ghost
 
 ## Build and milestones
 
-Install exact editor and export templates from official [Godot 4.7.2-stable release](https://godotengine.org/download/archive/4.7.2-stable/). `godot --headless --path . --import --quit` validates project loading; see PLAN.md for CI/tests and `docs/toolchain.json` for pin. Install Git LFS before clone/pull. Initial skeleton, gameplay, responsive UI, generated assets, persistence and Windows release are tracked in GitHub issues. App icon `AppStore/icon.png` is real OpenAI-generated art; icon wiring for export presets is issue #7. `AppStore/description.txt` is honest pre-release copy. No claim that a Windows zip, APK, IPA, or store submission is available yet.
+Install exact editor and export templates from official [Godot 4.7.2-stable release](https://godotengine.org/download/archive/4.7.2-stable/). `godot --headless --path . --import --quit` validates project loading; see PLAN.md for CI/tests and `docs/toolchain.json` for pin. Install Git LFS before clone/pull. Remaining generated assets, extended gameplay, and mobile exports are tracked in GitHub issues. `AppStore/icon.png` is genuine OpenAI-generated art. `AppStore/icon.ico` is its Windows size-optimized derivative, wired into Windows native/executable icon; Android and iOS preset slots point at original PNG. `AppStore/description.txt` describes shipped versus planned features. A zipped Windows release exists at `v0.1.0`; no APK or IPA is available.
 
-Release milestone: `.github/workflows/release.yml` on `v*` tags/manual dispatch builds a zipped Windows Desktop export on `windows-latest` and publishes it as GitHub release asset. Android export and iOS macOS runner compile are separate gates; TestFlight/Play submission later and opt-in.
+Release pipeline: `.github/workflows/release.yml` on `v*` tags/manual dispatch builds a zipped Windows Desktop export on `windows-latest` and publishes it as GitHub release asset. Manual dispatch must run from `main` with `release_tag` (e.g. `v0.1.0`). First verified run: release `v0.1.0` from main commit `ecc861c`, run 40233624693, asset `uniloop-windows-v0.1.0.zip`. Android export and iOS macOS runner compile are separate gates; TestFlight/Play submission later and opt-in.

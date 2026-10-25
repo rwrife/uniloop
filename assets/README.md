@@ -15,6 +15,7 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | Asset Path | Type | Origin | Generation details / source | Status |
 |---|---|---|---|---|
 | `AppStore/icon.png` | 2D Icon | `ai-generated` | spark-media image (gpt-image-2.5-flare, 1024x1024 RGB) | Accepted |
+| `AppStore/icon.ico` | Windows icon | `ai-generated` | Pillow resize of `AppStore/icon.png`; 16, 32, 48, 64, 128, 256 px, no new generation | Accepted; Windows native + export icon |
 | `scripts/wheel_rider.gd` | 3D Vehicle | `primitive` | Godot TorusMesh tire, BoxMesh spokes/fork, CapsuleMesh seat with PBR materials | Active placeholder; mesh pipeline pending #4 |
 | `scripts/canyon.gd` (gate) | 3D Prop | `primitive` | BoxMesh post/beam and Label3D number with direction arrow; crossing detected along the course path in code | Active placeholder |
 | `scripts/canyon.gd` (rail) | 3D Course | `primitive` | MultiMesh CylinderMesh rail striped by track kind (blue/green, red/blue, red/yellow), white PrismMesh chevrons, green CylinderMesh/SphereMesh goo coat with shader-animated drips and CPUParticles3D droplets, emissive BoxMesh boost pads; one-way landing is path math, ConcavePolygonShape3D kept for queries | Active placeholder |
