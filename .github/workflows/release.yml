@@ -1,0 +1,161 @@
+name: Release
+run-name: Release ${{ github.ref_name }}
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag name (e.g. v0.1.0). Manual dispatch only.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_BASE_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable
+
+jobs:
+  windows-release:
+    name: Windows Desktop release
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          # On workflow_dispatch GITHUB_REF_NAME is the branch, not a tag.
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$GITHUB_REF_NAME" != "main" ]; then
+              echo "manual dispatch must run from main; got $GITHUB_REF_NAME"
+              exit 1
+            fi
+            TAG="${{ inputs.release_tag }}"
+            if [ -z "$TAG" ]; then
+              echo "workflow_dispatch needs inputs.release_tag (e.g. v0.1.0)"
+              exit 1
+            fi
+            case "$TAG" in
+              v*) ;;
+              *) echo "release_tag must start with 'v' (got $TAG)"; exit 1 ;;
+            esac
+            EXISTING=$(git ls-remote origin "refs/tags/$TAG" | awk '{print $1}')
+            if [ -n "$EXISTING" ] && [ "$EXISTING" != "$GITHUB_SHA" ]; then
+              echo "tag $TAG already exists at $EXISTING, not at this commit $GITHUB_SHA"
+              exit 1
+            fi
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Using release tag: $TAG"
+
+      - name: Verify toolchain pin
+        run: |
+          pin=$(python3 -c "import json;print(json.load(open('docs/toolchain.json'))['godot_version'])")
+          test "$pin" = "$GODOT_VERSION" || { echo "toolchain.json pin $pin != $GODOT_VERSION"; exit 1; }
+
+      - name: Download pinned editor and export templates
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/godot.zip" "$GODOT_BASE_URL/Godot_v${GODOT_VERSION}_win64.exe.zip"
+          curl -fsSL -o "$RUNNER_TEMP/templates.tpz" "$GODOT_BASE_URL/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          curl -fsSL -o "$RUNNER_TEMP/SHA512-SUMS.txt" "$GODOT_BASE_URL/SHA512-SUMS.txt"
+          (cd "$RUNNER_TEMP" && grep -F " Godot_v${GODOT_VERSION}_win64.exe.zip" SHA512-SUMS.txt | sed "s|Godot_v${GODOT_VERSION}_win64.exe.zip|godot.zip|" | sha512sum -c -)
+          (cd "$RUNNER_TEMP" && grep -F " Godot_v${GODOT_VERSION}_export_templates.tpz" SHA512-SUMS.txt | sed "s|Godot_v${GODOT_VERSION}_export_templates.tpz|templates.tpz|" | sha512sum -c -)
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/templates.tpz" -d "$RUNNER_TEMP/tpl"
+          tdir="$APPDATA/Godot/export_templates/${GODOT_VERSION/-/.}"
+          mkdir -p "$tdir"
+          cp -r "$RUNNER_TEMP/tpl/templates/." "$tdir/"
+
+      - name: Import project
+        run: |
+          exe=$(ls "$RUNNER_TEMP"/godot/Godot_v*_win64_console.exe)
+          echo "GODOT_EXE=$exe" >> "$GITHUB_ENV"
+          "$exe" --headless --path . --import --quit
+
+      - name: Run GUT (headless)
+        run: '"$GODOT_EXE" --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit'
+
+      - name: Export Windows Desktop
+        run: |
+          mkdir -p build/windows
+          "$GODOT_EXE" --headless --path . --export-release "Windows Desktop" build/windows/uniloop.exe
+          ls -la build/windows
+          test -s build/windows/uniloop.exe
+
+      - name: Verify embedded icon and metadata
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $exe = (Resolve-Path 'build/windows/uniloop.exe').Path
+          $ver = (Get-Item $exe).VersionInfo
+          "FileDescription: $($ver.FileDescription)"
+          "ProductName:     $($ver.ProductName)"
+          "FileVersion:     $($ver.FileVersion)"
+          "CompanyName:     $($ver.CompanyName)"
+          if ($ver.ProductName -ne 'Uniloop') { throw "ProductName not patched: $($ver.ProductName)" }
+          if ($ver.CompanyName -ne 'InfinityBall') { throw "CompanyName not patched: $($ver.CompanyName)" }
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exe)
+          if ($null -eq $icon) { throw 'no associated icon in exported exe' }
+          "Extracted icon size: $($icon.Width)x$($icon.Height)"
+          $bmp = $icon.ToBitmap()
+          $px = $bmp.GetPixel([int]($bmp.Width / 2), [int]($bmp.Height / 2))
+          "Center pixel: R=$($px.R) G=$($px.G) B=$($px.B)"
+          # Godot template default is a flat blue glyph; generated art differs.
+          if ($px.B -gt 200 -and $px.R -lt 80 -and $px.G -lt 130) { throw 'icon still looks like the Godot template default' }
+
+      - name: Package zip
+        run: |
+          cp README.md LICENSE build/windows/
+          cp AppStore/description.txt build/windows/AppStore-description.txt
+          (cd build && zip -r -9 "../uniloop-windows-${RELEASE_TAG}.zip" windows)
+          ls -lh "uniloop-windows-${RELEASE_TAG}.zip"
+          test -s "uniloop-windows-${RELEASE_TAG}.zip"
+          unzip -l "uniloop-windows-${RELEASE_TAG}.zip"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ZIP="uniloop-windows-${RELEASE_TAG}.zip"
+          {
+            echo "Windows Desktop portable build of Uniloop ${RELEASE_TAG}."
+            echo
+            echo "Built on windows-latest with pinned Godot ${GODOT_VERSION} (Forward+ renderer)."
+            echo "Offline single-player; no network access, no accounts, no telemetry."
+            echo
+            echo "This build lane verified: Windows Desktop export + GUT headless tests."
+            echo "Android/iOS exports are not part of this release asset."
+          } > "$RUNNER_TEMP/notes.md"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            REMOTE_SHA=$(git ls-remote origin "refs/tags/$RELEASE_TAG" | awk '{print $1}')
+            if [ -z "$REMOTE_SHA" ]; then
+              git tag "$RELEASE_TAG" "$GITHUB_SHA"
+              git push origin "refs/tags/${RELEASE_TAG}"
+            elif [ "$REMOTE_SHA" != "$GITHUB_SHA" ]; then
+              echo "tag moved between preflight and publish; refusing to overwrite"
+              exit 1
+            fi
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$ZIP" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$ZIP" \
+              --title "Uniloop ${RELEASE_TAG} (Windows Desktop)" \
+              --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          # Persist the tag that was actually used for the asset.
+          echo "verified tag: $(gh release view "$RELEASE_TAG" --json tagName --jq .tagName)"

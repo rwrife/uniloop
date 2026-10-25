@@ -50,3 +50,18 @@ func test_toolchain_pin_matches_running_editor() -> void:
 func test_app_identifier_prefix_in_presets() -> void:
 	var text := FileAccess.get_file_as_string("res://export_presets.cfg")
 	assert_eq(text.count("com.infinityball.uniloop"), 2)
+
+
+func test_generated_icon_is_wired_into_all_export_targets() -> void:
+	var icon: Texture2D = load("res://AppStore/icon.png")
+	assert_not_null(icon)
+	assert_eq(icon.get_width(), 1024)
+	assert_eq(icon.get_height(), 1024)
+	assert_eq(ProjectSettings.get_setting("application/config/icon"), "res://AppStore/icon.png")
+	var presets := FileAccess.get_file_as_string("res://export_presets.cfg")
+	assert_true(presets.contains("application/modify_resources=true"))
+	assert_true(FileAccess.file_exists("res://AppStore/icon.ico"))
+	assert_eq(ProjectSettings.get_setting("application/config/windows_native_icon"), "res://AppStore/icon.ico")
+	assert_true(presets.contains("application/icon=\"res://AppStore/icon.ico\""))
+	for entry in ["launcher_icons/main_192", "icons/iphone_120", "icons/ipad_152"]:
+		assert_true(presets.contains(entry + "=\"res://AppStore/icon.png\""), entry + " must use the generated icon")

@@ -1,7 +1,7 @@
-Uniloop — planned offline 3D momentum-racing game for Windows, Android, and iOS phones and tablets.
+Uniloop — offline 3D single-wheel momentum racing.
 
-This is pre-release planning copy, not a claim that a playable build is available. The intended game lets players ride an original single-wheel racer across sculpted courses, balancing momentum through banked turns, jumps and clean landings.
+Ride an original one-wheel racer through Canyon Ribbon. Balance speed and tilt over banked turns, jumps, and checkpoint gates. Land cleanly, avoid resets, and improve your time and medal. Adaptive menus and controls support keyboard/gamepad on desktop and touch on phones and tablets. Settings include text scale, contrast, reduced shake, audio level, and keyboard remapping; progress saves locally.
 
-Planned features: three original courses, time trials and local medals, optional stunt lines and best-run ghost replay, touch controls on phones/tablets plus keyboard/gamepad on desktop, adaptive menus, local save records with JSON export/import, and no accounts, ads or trackers.
+Windows Desktop is the current primary build. Android and iOS (phone and tablet) exports remain in development. More courses, ghost replays, and JSON record exchange are planned, not shipped. No account, ads, or trackers.
 
-Store description will be revised against real shipped features before publication.
+Pre-release copy; verify all features on each platform before store publication.

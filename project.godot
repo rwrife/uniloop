@@ -7,6 +7,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 config/description="Offline single-wheel momentum racing"
 run/main_scene="res://scenes/menu.tscn"
 config/icon="res://AppStore/icon.png"
+config/windows_native_icon="res://AppStore/icon.ico"
 
 [rendering]
 
