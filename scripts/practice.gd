@@ -24,7 +24,8 @@ var crashes := 0
 var finish_stats: Dictionary = {}
 var _milliseconds := 0.0
 var _last_gate := -1
-var _message := "Ride right ▶ through each gate"
+var _hud_score := 0
+var _shown_score := 0.0
 var _landing_shake := 0.0
 var _last_pos := Vector3.ZERO
 var _rider_vx := 0.0
@@ -37,10 +38,12 @@ var countdown_enabled := true
 var racing := true
 var countdown_label: Label
 var _flash: ColorRect
-@onready var status: Label = $Hud/Root/Status
+@onready var status: HBoxContainer = $Hud/Root/Status
+var time_label: Label
+var score_label: Label
 @onready var pause_panel: PanelContainer = $Hud/Root/PausePanel
 @onready var pause_button: Button = $Hud/Root/Pause
-@onready var settings_panel: PanelContainer = $Hud/Root/SettingsPanel
+var _pause_dim: ColorRect
 var popup: Label
 var stats_panel: PanelContainer
 var finish_fx: FinishFX
@@ -50,18 +53,12 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_handle_touch(event)
 	if event.is_action_pressed(&"pause") and (stats_panel == null or not stats_panel.visible):
-		if settings_panel.visible:
-			_open_pause_from_settings()
-		else:
-			_set_paused(not pause_panel.visible)
+		_set_paused(not pause_panel.visible)
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"ui_cancel"):
-		if settings_panel.visible:
-			_open_pause_from_settings()
-		elif pause_panel.visible:
-			_set_paused(false)
+	if event.is_action_pressed(&"ui_cancel") and pause_panel.visible:
+		_set_paused(false)
 		get_viewport().set_input_as_handled()
 
 func _notification(what: int) -> void:
@@ -70,55 +67,59 @@ func _notification(what: int) -> void:
 
 func _set_paused(enabled: bool) -> void:
 	pause_panel.visible = enabled
-	settings_panel.visible = false
+	_pause_dim.visible = enabled
 	get_tree().paused = enabled
 	if enabled:
 		$Hud/Root/PausePanel/Box/Resume.grab_focus()
+		pause_panel.pivot_offset = pause_panel.size * 0.5
+		pause_panel.scale = Vector2(0.6, 0.6)
+		pause_panel.create_tween().tween_property(pause_panel, "scale", Vector2.ONE, 0.25) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	else:
 		pause_button.grab_focus()
 
-func _open_pause_settings() -> void:
-	pause_panel.visible = false
-	settings_panel.visible = true
-	var settings := SaveStore.get_settings(save)
-	$Hud/Root/SettingsPanel/Box/HighContrast.button_pressed = settings.high_contrast
-	$Hud/Root/SettingsPanel/Box/ReducedShake.button_pressed = settings.reduced_shake
-	$Hud/Root/SettingsPanel/Box/TouchOverlay.button_pressed = settings.touch_overlay
-	$Hud/Root/SettingsPanel/Box/HighContrast.grab_focus()
-
-func _open_pause_from_settings() -> void:
-	settings_panel.visible = false
-	pause_panel.visible = true
-	$Hud/Root/PausePanel/Box/Resume.grab_focus()
-
-func _wire_pause_settings() -> void:
-	$Hud/Root/PausePanel/Box/Settings.pressed.connect(_open_pause_settings)
-	$Hud/Root/SettingsPanel/Box/Back.pressed.connect(_open_pause_from_settings)
-	$Hud/Root/SettingsPanel/Box/HighContrast.toggled.connect(_on_pause_high_contrast)
-	$Hud/Root/SettingsPanel/Box/ReducedShake.toggled.connect(_on_pause_reduced_shake)
-	$Hud/Root/SettingsPanel/Box/TouchOverlay.toggled.connect(_on_pause_touch_overlay)
-
-func _on_pause_high_contrast(enabled: bool) -> void:
-	SaveStore.set_settings(save, {"high_contrast": enabled})
-	SaveStore.save_to_path(save, save_path)
-	$Hud/Root.theme = UniloopUI.create_theme(SaveStore.get_settings(save))
-
-func _on_pause_reduced_shake(enabled: bool) -> void:
-	SaveStore.set_settings(save, {"reduced_shake": enabled})
-	SaveStore.save_to_path(save, save_path)
-
-func _on_pause_touch_overlay(enabled: bool) -> void:
-	SaveStore.set_settings(save, {"touch_overlay": enabled})
-	SaveStore.save_to_path(save, save_path)
-	var existing := $Hud/Root.get_node_or_null("TouchOverlay")
-	if enabled and existing == null and DisplayServer.is_touchscreen_available():
-		_build_touch_overlay()
-		_apply_safe_area()
-	elif not enabled and existing != null:
-		_release_touches()
-		existing.queue_free()
-		_touch_buttons.clear()
-
+## Arcade pause card: dimmed backdrop, wobbling PAUSED title and chunky buttons.
+func _style_pause_panel() -> void:
+	_pause_dim = ColorRect.new()
+	_pause_dim.name = "PauseDim"
+	_pause_dim.color = Color(0.07, 0.01, 0.15, 0.6)
+	_pause_dim.visible = false
+	_pause_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	$Hud/Root.add_child(_pause_dim)
+	$Hud/Root.move_child(_pause_dim, pause_panel.get_index())
+	var card := StyleBoxFlat.new()
+	card.bg_color = Color(0.17, 0.05, 0.31, 0.96)
+	card.border_color = UniloopUI.POP_YELLOW
+	card.set_border_width_all(7)
+	card.set_corner_radius_all(30)
+	card.set_content_margin_all(30)
+	card.content_margin_top = 10
+	card.shadow_color = Color(0, 0, 0, 0.6)
+	card.shadow_size = 14
+	card.shadow_offset = Vector2(0, 10)
+	pause_panel.add_theme_stylebox_override("panel", card)
+	for side in ["offset_left", "offset_right", "offset_top", "offset_bottom"]:
+		pause_panel.set(side, 0.0)
+	var box: VBoxContainer = pause_panel.get_node("Box")
+	box.add_theme_constant_override("separation", 16)
+	var title: Label = box.get_node("Title")
+	var looks := UniloopUI.chunky_label("PAUSED", 84)
+	for prop in ["theme_override_fonts/font", "theme_override_font_sizes/font_size",
+		"theme_override_colors/font_color", "theme_override_colors/font_outline_color",
+		"theme_override_constants/outline_size", "theme_override_colors/font_shadow_color",
+		"theme_override_constants/shadow_offset_x", "theme_override_constants/shadow_offset_y"]:
+		title.set(prop, looks.get(prop))
+	looks.free()
+	var buttons: Array[Button] = []
+	for key in ["Resume", "Restart", "Menu"]:
+		var b: Button = box.get_node(key)
+		UniloopUI.style_chunky(b, 40)
+		b.custom_minimum_size = Vector2(380, 0)
+		buttons.append(b)
+	for i in buttons.size():
+		var b := buttons[i]
+		b.focus_neighbor_top = b.get_path_to(buttons[(i - 1 + buttons.size()) % buttons.size()])
+		b.focus_neighbor_bottom = b.get_path_to(buttons[(i + 1) % buttons.size()])
 func _exit_to_menu() -> void:
 	_release_touches()
 	get_tree().paused = false
@@ -153,18 +154,18 @@ func _ready() -> void:
 	_snap_camera()
 	var result := SaveStore.load_from_path(save_path)
 	save = result.save if result.ok else SaveStore.default_save()
-	if not result.ok:
-		_message = "Save unreadable (%s); original left untouched" % result.error
 	$Hud/Root.theme = UniloopUI.create_theme(SaveStore.get_settings(save))
 	pause_button.pressed.connect(_set_paused.bind(true))
 	$Hud/Root/PausePanel/Box/Resume.pressed.connect(_set_paused.bind(false))
 	$Hud/Root/PausePanel/Box/Restart.pressed.connect(_restart_course)
 	$Hud/Root/PausePanel/Box/Menu.pressed.connect(_exit_to_menu)
-	_wire_pause_settings()
+	_style_pause_panel()
 	_build_popup()
+	_build_hud()
+	if not result.ok:
+		push_warning("Save unreadable (%s); original left untouched" % result.error)
+		_show_popup("SAVE UNREADABLE", Color(1.0, 0.3, 0.25), 2.0)
 	_build_stats_panel()
-	status.add_theme_constant_override("outline_size", 8)
-	status.add_theme_color_override("font_outline_color", Color(0.04, 0.05, 0.1))
 	if DisplayServer.is_touchscreen_available() and SaveStore.get_settings(save).touch_overlay:
 		_build_touch_overlay()
 	_apply_safe_area()
@@ -267,19 +268,61 @@ func _process(delta: float) -> void:
 	camera.rotation = Vector3.ZERO
 	_update_status()
 
+## Chunky TIME and POINTS badges plus an arcade-style PAUSE button.
+func _build_hud() -> void:
+	status.add_theme_constant_override("separation", 14)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	time_label = _hud_badge("TimeBadge", "TIME", 200, UniloopUI.WHITE)
+	score_label = _hud_badge("ScoreBadge", "POINTS", 180, UniloopUI.POP_YELLOW)
+	pause_button.text = "PAUSE"
+	UniloopUI.style_chunky(pause_button, 30)
+	pause_button.custom_minimum_size = Vector2.ZERO
+
+func _hud_badge(badge_name: String, caption: String, width: float, color: Color) -> Label:
+	var plate := PanelContainer.new()
+	plate.name = badge_name
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.custom_minimum_size.x = width
+	var look := StyleBoxFlat.new()
+	look.bg_color = Color(0.17, 0.05, 0.31, 0.9)
+	look.border_color = UniloopUI.POP_YELLOW
+	look.set_border_width_all(5)
+	look.set_corner_radius_all(20)
+	look.content_margin_left = 16
+	look.content_margin_right = 16
+	look.content_margin_top = 7
+	look.content_margin_bottom = 4
+	look.shadow_color = Color(0, 0, 0, 0.45)
+	look.shadow_size = 2
+	look.shadow_offset = Vector2(0, 5)
+	plate.add_theme_stylebox_override("panel", look)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", -8)
+	plate.add_child(stack)
+	var cap := UniloopUI.chunky_label(caption, 20, UniloopUI.CYAN)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(cap)
+	var value := UniloopUI.chunky_label("0", 46, color)
+	value.name = "Value"
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(value)
+	status.add_child(plate)
+	return value
+
 func _update_status() -> void:
-	var arrow := "▶" if rider.drive_dir > 0 else ("◀" if rider.drive_dir < 0 else "◀▶")
-	var d := current_device
-	var prompts := "Ride %s/%s • Hop %s • Brake %s • Air: Flip %s Roll %s Twist %s/%s Z-Flip %s/%s Tabletop %s" % [
-		UniloopUI.prompt(&"move_left", d), UniloopUI.prompt(&"move_right", d),
-		UniloopUI.prompt(&"jump", d), UniloopUI.prompt(&"brake", d),
-		UniloopUI.prompt(&"flip_back", d), UniloopUI.prompt(&"roll_forward", d),
-		UniloopUI.prompt(&"move_left", d), UniloopUI.prompt(&"move_right", d),
-		UniloopUI.prompt(&"zflip_left", d), UniloopUI.prompt(&"zflip_right", d),
-		UniloopUI.prompt(&"tabletop", d)]
-	status.text = "%s  %s   Ride %s\nGate %d/%d  Speed %d  Score %d  Resets %d\n%s\n%s" % [
-		String(course.track.title).to_upper(), _format_time(rules.elapsed_ms), arrow, rules.next_checkpoint, course.gates.size(),
-		int(absf(rider.speed) * 3.6), rules.score, rules.resets, _message, prompts]
+	time_label.text = _format_time(rules.elapsed_ms)
+	if rules.score != _hud_score:
+		var gained := rules.score > _hud_score
+		_hud_score = rules.score
+		score_label.pivot_offset = score_label.size * 0.5
+		score_label.scale = Vector2(1.4, 1.4) if gained else Vector2(0.8, 0.8)
+		score_label.add_theme_color_override("font_color", Color("fff3a0") if gained else Color(1.0, 0.3, 0.25))
+		var pop := score_label.create_tween().set_parallel()
+		pop.tween_property(score_label, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		pop.tween_property(score_label, "theme_override_colors/font_color", UniloopUI.POP_YELLOW, 0.5)
+	# Roll the shown points toward the real score like an arcade counter.
+	_shown_score = move_toward(_shown_score, float(rules.score), maxf(40.0, absf(rules.score - _shown_score) * 6.0) * get_process_delta_time())
+	score_label.text = str(roundi(_shown_score))
 
 func _format_time(ms: int) -> String:
 	return "%02d:%05.2f" % [ms / 60000, fmod(float(ms), 60000.0) / 1000.0]
@@ -291,7 +334,6 @@ func _on_landed(report: Dictionary) -> void:
 		crashes += 1
 		rules.score = maxi(0, rules.score - CRASH_PENALTY)
 		rules.streak = 0
-		_message = "WIPEOUT! %s" % report.reason
 		_show_popup("WIPEOUT!  -%d\n%s" % [CRASH_PENALTY, report.reason], Color(1.0, 0.3, 0.25))
 		_shake(0.3)
 		_sparks(Color(1.0, 0.45, 0.2), 40)
@@ -304,12 +346,10 @@ func _on_landed(report: Dictionary) -> void:
 		rules.score += points
 		tricks_landed += report.count
 		best_combo = maxi(best_combo, report.count)
-		_message = "%s +%d • speed boost!" % [" + ".join(tricks), points]
 		_show_popup("%s\n+%d  BOOST!" % [" + ".join(tricks), points], Color(1.0, 0.86, 0.2))
 		_sparks(Color(1.0, 0.9, 0.3), 28)
 		_shake(0.12)
 	elif report.air_time > 0.5 and quality != "hop":
-		_message = "Landing: %s" % quality
 		_shake(0.1)
 
 func _on_boosted() -> void:
@@ -320,8 +360,7 @@ func _on_checkpoint(body: Node3D, index: int) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.cross_checkpoint(index):
 		return
 	_last_gate = index
-	var heading := "▶" if course.gates[index].t.x > 0.0 else "◀"
-	_message = "Checkpoint %d/%d %s" % [index + 1, course.gates.size(), heading]
+	_show_popup("CHECKPOINT %d/%d" % [index + 1, course.gates.size()], UniloopUI.CYAN, 0.6)
 
 func _on_finish(body: Node3D) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.finish():
@@ -341,7 +380,6 @@ func _on_finish(body: Node3D) -> void:
 		"resets": rules.resets,
 		"saved": SaveStore.save_to_path(save, save_path),
 	}
-	_message = "FINISHED • %s • %s" % [medal.to_upper(), _format_time(rules.elapsed_ms)]
 	rider.cruise = true
 	rider.recover_time = 0.0
 	_finish_timer = 0.0
@@ -353,7 +391,7 @@ func _reset() -> void:
 	_last_pos = rider.global_position
 	rules.reset_to_checkpoint()
 	_snap_camera()
-	_message = "Fell off • back to gate • +%ds" % (RaceRules.RESET_PENALTY_MS / 1000)
+	_show_popup("FELL!  +%dS" % (RaceRules.RESET_PENALTY_MS / 1000), Color(1.0, 0.3, 0.25))
 
 func _camera_target() -> Vector3:
 	var h := rider.handling
@@ -380,8 +418,9 @@ func _build_popup() -> void:
 	popup.offset_right = 360.0
 	popup.offset_top = 150.0
 	popup.offset_bottom = 260.0
-	popup.add_theme_font_size_override("font_size", 40)
-	popup.add_theme_constant_override("outline_size", 10)
+	popup.add_theme_font_override("font", UniloopUI.CHUNKY_FONT)
+	popup.add_theme_font_size_override("font_size", 54)
+	popup.add_theme_constant_override("outline_size", 14)
 	popup.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.1))
 	popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	popup.modulate.a = 0.0
@@ -608,9 +647,10 @@ func _apply_safe_area() -> void:
 	var viewport_rect := Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size)
 	var margins := UniloopUI.safe_margins(viewport_rect, DisplayServer.get_display_safe_area())
 	status.position = Vector2(margins.x, margins.y)
-	status.size = Vector2(maxf(200, viewport_rect.size.x - margins.x - margins.z - 128), 150)
+	status.size = Vector2.ZERO
 	$Hud/Root/Pause.offset_top = margins.y
-	$Hud/Root/Pause.offset_bottom = margins.y + 56
+	$Hud/Root/Pause.offset_bottom = margins.y + 60
+	$Hud/Root/Pause.offset_right = -margins.z
 	if _touch_buttons.is_empty():
 		return
 	var size := Vector2(viewport_rect.size)
