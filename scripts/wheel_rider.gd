@@ -11,6 +11,8 @@ signal boosted
 signal took_off
 
 @export var handling: WheelHandling
+@export var frame_color := Color(0.98, 0.85, 0.1)
+@export var seat_color := Color(0.06, 0.06, 0.07)
 var course: CanyonCourse
 var speed := 0.0
 var grounded := false
@@ -39,6 +41,9 @@ var top_speed := 0.0
 var _wheel_spin := 0.0
 var _pose: Node3D
 var _trail: CPUParticles3D
+var _skip_sec := -1
+var _skip_lo := 0.0
+var _skip_hi := 0.0
 
 func _ready() -> void:
 	assert(handling != null)
@@ -101,7 +106,7 @@ func _build_wheel() -> Node3D:
 func _build_frame() -> Node3D:
 	var frame := Node3D.new()
 	frame.name = "RiderPrimitive"
-	var yellow := _material(Color(0.98, 0.85, 0.1), 0.5, 0.3)
+	var yellow := _material(frame_color, 0.5, 0.3)
 	var fork := BoxMesh.new()
 	fork.size = Vector3(0.08, 0.95, 0.08)
 	for side in [-0.12, 0.12]:
@@ -117,7 +122,7 @@ func _build_frame() -> Node3D:
 	var seat := CapsuleMesh.new()
 	seat.radius = 0.13
 	seat.height = 0.8
-	frame.add_child(_part(seat, _material(Color(0.06, 0.06, 0.07), 0.1, 0.5), Vector3(0.04, 1.6, 0), Vector3(0, 0, PI / 2.0 - 0.12)))
+	frame.add_child(_part(seat, _material(seat_color, 0.1, 0.5), Vector3(0.04, 1.6, 0), Vector3(0, 0, PI / 2.0 - 0.12)))
 	return frame
 
 func _build_trail() -> CPUParticles3D:
@@ -169,8 +174,13 @@ func _ground_step(delta: float) -> void:
 	var smp := course.sample(section, distance)
 	var t: Vector3 = smp.seg_t
 	drive_dir = smp.drive
+	var in_goo: bool = smp.kind == CanyonCourse.GOO
 	if recover_time > 0.0:
 		speed = 0.0
+	elif in_goo and not cruise:
+		# Goo is forward-only: no brake, no reverse, no hop; it drags you to a crawl.
+		var rate := h.goo_drag if speed > h.goo_speed else h.acceleration
+		speed = move_toward(speed, h.goo_speed, rate * delta)
 	else:
 		speed -= h.gravity * h.slope_gravity * t.y * delta
 		var throttle := 1.0
@@ -180,13 +190,14 @@ func _ground_step(delta: float) -> void:
 		if not cruise and Input.is_action_pressed(&"brake"):
 			speed = move_toward(speed, 0.0, h.brake * delta)
 		elif throttle > 0.0:
-			if speed < 0.0:
+			# Only brake a real backward roll; from a standstill on a slope, pedal forward.
+			if speed < -1.0:
 				speed = move_toward(speed, 0.0, h.brake * delta)
 			else:
 				var target := h.cruise_speed if cruise else h.max_speed
 				speed = move_toward(speed, maxf(speed, target), h.acceleration * throttle * delta)
 		elif throttle < 0.0:
-			if speed > 0.0:
+			if speed > 1.0:
 				speed = move_toward(speed, 0.0, h.brake * 0.6 * delta)
 			else:
 				speed = move_toward(speed, -h.reverse_speed, h.acceleration * 0.5 * delta)
@@ -207,8 +218,6 @@ func _ground_step(delta: float) -> void:
 		var sec: CanyonCourse.Section = course.sections[section]
 		if distance > sec.length:
 			var next := sec.next
-			if sec.fork >= 0 and not cruise and Input.is_action_pressed(&"flip_back"):
-				next = sec.fork
 			if next < 0:
 				var lip := course.sample(section, sec.length)
 				_place(lip, delta)
@@ -231,7 +240,7 @@ func _ground_step(delta: float) -> void:
 	var grip: float = speed * speed * smp.curv + h.gravity * smp.n.y
 	if grip < 0.0 and absf(speed) > 1.0:
 		_leave_ground(smp.seg_t * speed)
-	elif _active() and smp.drive != 0 and Input.is_action_just_pressed(&"jump"):
+	elif _active() and smp.drive != 0 and smp.kind != CanyonCourse.GOO and smp.kind != CanyonCourse.TURN and Input.is_action_just_pressed(&"jump"):
 		_leave_ground(smp.seg_t * speed + smp.n * h.jump_speed)
 
 func _place(smp: Dictionary, delta: float) -> void:
@@ -245,6 +254,14 @@ func _surface_pitch(tangent: Vector3) -> float:
 
 func _leave_ground(launch: Vector3) -> void:
 	grounded = false
+	# Don't let a jump drop back onto the rail it just left behind (loop insides).
+	_skip_sec = section
+	if speed >= 0.0:
+		_skip_lo = distance - 70.0
+		_skip_hi = distance - 3.0
+	else:
+		_skip_lo = distance + 3.0
+		_skip_hi = distance + 70.0
 	velocity = Vector3(launch.x, launch.y, 0.0)
 	air_time = 0.0
 	flip_air = 0.0
@@ -281,10 +298,19 @@ func _air_step(delta: float) -> void:
 		if flip == 0.0:
 			var upright := wrapf(pitch, -PI, PI)
 			pitch += move_toward(upright, 0.0, h.auto_level * delta) - upright
+		# Released twists and z-flips settle onto the nearest landable angle.
+		if turn == 0.0:
+			var settle := move_toward(twist, snappedf(twist, PI), h.twist_snap * delta) - twist
+			twist += settle
+			twist_air += settle
+		if roll == 0.0:
+			var settle := move_toward(zflip, snappedf(zflip, TAU), h.zflip_snap * delta) - zflip
+			zflip += settle
+			zflip_air += settle
 	var from := global_position
 	global_position += velocity * delta
 	if course != null and air_time > 0.05:
-		var hit := course.find_landing(from, global_position, velocity, h.wheel_radius)
+		var hit := course.find_landing(from, global_position, velocity, h.wheel_radius, _skip_sec, _skip_lo, _skip_hi)
 		if not hit.is_empty():
 			_land(hit)
 
@@ -323,9 +349,9 @@ func _land(hit: Dictionary) -> void:
 		reason = "Hard landing"
 	elif bank_angle > h.crash_angle:
 		reason = "Land level with the rail"
-	elif absf(wrapf(twist, -PI / 2.0, PI / 2.0)) > deg_to_rad(35.0):
+	elif absf(wrapf(twist, -PI / 2.0, PI / 2.0)) > deg_to_rad(h.twist_tolerance):
 		reason = "Finish the twist"
-	elif absf(wrapf(zflip, -PI, PI)) > deg_to_rad(40.0):
+	elif absf(wrapf(zflip, -PI, PI)) > deg_to_rad(h.zflip_tolerance):
 		reason = "Finish the z-flip"
 	elif tabletop > 0.4:
 		reason = "Release the tabletop"
@@ -391,6 +417,7 @@ func reset_at(where: Vector3, heading: Vector3) -> void:
 	_clear_state()
 
 func _clear_state() -> void:
+	_skip_sec = -1
 	twist = 0.0
 	zflip = 0.0
 	tabletop = 0.0

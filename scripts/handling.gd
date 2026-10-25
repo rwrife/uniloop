@@ -14,10 +14,16 @@ extends Resource
 @export var boost_speed: float = 8.0
 @export var slope_gravity: float = 0.6
 @export var reverse_speed: float = 8.0
-@export var goo_speed: float = 9.0
+@export var goo_speed: float = 7.0
 @export var goo_drag: float = 40.0
 @export var spin_rate: float = 9.5
-@export var twist_rate: float = 9.0
+@export var twist_rate: float = 7.0
+## Released twists / z-flips glide to the nearest landable angle (rad/s).
+@export var twist_snap: float = 7.0
+@export var zflip_snap: float = 6.0
+## Landing tolerance (degrees) away from a whole half-twist / full z-flip.
+@export var twist_tolerance: float = 60.0
+@export var zflip_tolerance: float = 55.0
 @export var zflip_rate: float = 8.0
 @export var auto_level: float = 2.5
 @export var align_rate: float = 25.0

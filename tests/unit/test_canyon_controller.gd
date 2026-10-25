@@ -10,6 +10,7 @@ const PRACTICE := preload("res://scenes/practice.tscn")
 func _practice() -> Node3D:
 	var practice: Node3D = PRACTICE.instantiate()
 	practice.save_path = "user://canyon_test_record.json"
+	practice.countdown_enabled = false
 	add_child_autofree(practice)
 	return practice
 
@@ -38,7 +39,8 @@ func test_canyon_course_has_zigzag_features() -> void:
 	assert_gte(course.loops, 4, "full 360 loops")
 	assert_gte(course.uturns, 2, "helix U-turns")
 	assert_gte(course.launches.size(), 2, "vertical launches")
-	assert_gte(course.forks.size(), 2, "shortcut forks")
+	assert_gte(course.forks.size(), 4, "forking routes")
+	assert_gte(course.goo_pits, 4, "goo pits")
 	assert_gt(course.gaps.size(), 0)
 	assert_gt(course.boosts.size(), 0)
 	var leftward := 0
@@ -47,19 +49,93 @@ func test_canyon_course_has_zigzag_features() -> void:
 			leftward += 1
 	assert_gt(leftward, 0, "course doubles back to the left")
 	assert_gt(course.finish.pos.y, course.start_spot.pos.y + 50.0, "course climbs")
-	for node in ["Rail", "Chevrons", "Goo", "RibbonCollision", "Backdrop", "Finish"]:
+	for node in ["Rail", "Chevrons", "Goo", "GooDrips", "GooDroplets", "RibbonCollision", "Backdrop", "Finish"]:
 		assert_not_null(course.get_node_or_null(node), node)
 	var kinds := {}
 	for sec in course.sections:
 		for kind in sec.kinds:
 			kinds[kind] = true
-	for kind in [CanyonCourse.NORMAL, CanyonCourse.TURN, CanyonCourse.SHORTCUT, CanyonCourse.HAZARD, CanyonCourse.GOO]:
+	for kind in [CanyonCourse.NORMAL, CanyonCourse.TURN, CanyonCourse.HAZARD, CanyonCourse.GOO]:
 		assert_true(kinds.has(kind), "track kind %d is used" % kind)
+	assert_false(kinds.has(CanyonCourse.SHORTCUT), "fork routes are not colour-coded")
+	for child in course.get_children():
+		if child is Label3D:
+			assert_false("SHORTCUT" in child.text, "forks are not signposted")
+
+func test_forks_offer_two_long_distinct_routes() -> void:
+	var course: CanyonCourse = CANYON.new()
+	add_child_autofree(course)
+	var signatures := {}
+	for fork in course.forks:
+		assert_eq(fork.routes.size(), 2)
+		assert_gte(absf(fork.merge.x - fork.split.x), 200.0, "routes are long")
+		var rest: int = course.sections[fork.routes[0]].next
+		assert_eq(course.sections[fork.routes[1]].next, rest, "routes rejoin")
+		var side_by_side := 0
+		for x_off in [30.0, 60.0, 90.0, 120.0, 150.0, 180.0]:
+			var x: float = fork.split.x + signf(fork.merge.x - fork.split.x) * x_off
+			var ys: Array = []
+			for sec: CanyonCourse.Section in course.sections:
+				for k in sec.points.size() - 1:
+					var a: Vector3 = sec.points[k]
+					var b: Vector3 = sec.points[k + 1]
+					if absf(a.z - fork.split.z) < 3.0 and absf(a.y - fork.split.y) < 15.0 and minf(a.x, b.x) <= x and x <= maxf(a.x, b.x):
+						ys.append(a.y)
+			if ys.size() >= 2:
+				side_by_side += 1
+		assert_gte(side_by_side, 4, "both routes run side by side (allowing for jump gaps)")
+		for route in fork.routes:
+			var sec: CanyonCourse.Section = course.sections[route]
+			assert_almost_eq(sec.points[sec.points.size() - 1].distance_to(fork.merge), 0.0, 0.01, "route ends at the merge")
+		var shape := ""
+		for route in fork.routes:
+			shape += "%d," % course.sections[route].points.size()
+		signatures[shape] = true
+	assert_eq(signatures.size(), course.forks.size(), "every fork is different")
+
+func test_goo_is_forward_only() -> void:
+	var practice := _practice()
+	var course: CanyonCourse = practice.course
+	var wheel: WheelRider = practice.rider
+	var spot := {}
+	for i in course.sections.size():
+		var sec: CanyonCourse.Section = course.sections[i]
+		for k in sec.kinds.size():
+			if sec.kinds[k] == CanyonCourse.GOO and absf(sec.seg_tangents[k].y) < 0.05:
+				spot = {"sec": i, "s": sec.cum[k] + 0.5}
+				break
+		if not spot.is_empty():
+			break
+	assert_false(spot.is_empty(), "flat goo exists")
+	await get_tree().physics_frame
+	wheel.place_on(spot.sec, spot.s)
+	wheel.speed = 0.0
+	var forward := -1.0 if course.sample(spot.sec, spot.s).drive > 0 else 1.0
+	Input.action_press(&"move_left" if forward < 0.0 else &"move_right")
+	Input.action_press(&"brake")
+	var start: float = wheel.distance
+	for tick in 20:
+		await get_tree().physics_frame
+		Input.action_press(&"jump")
+	assert_true(wheel.grounded, "no hopping out of goo")
+	assert_gt(wheel.distance, start + 0.5, "goo keeps crawling forward")
+	assert_gt(wheel.speed, 0.0)
+	assert_lte(wheel.speed, wheel.handling.goo_speed + 0.01)
+
+func test_released_twist_settles_and_lands() -> void:
+	var practice := _practice()
+	var report := await _drop_onto_start(practice, func(wheel: WheelRider) -> void:
+		wheel.twist_air = deg_to_rad(125.0)
+		wheel.twist = deg_to_rad(125.0))
+	assert_false(report.is_empty(), "rider landed")
+	assert_false(report.crash, "a twist released past halfway settles to 180")
+	assert_true("TWIST 180" in report.tricks)
 
 func test_canyon_medals_valid() -> void:
-	assert_true(RaceRules.valid_thresholds(CanyonCourse.MEDALS))
-	assert_gte(CanyonCourse.MEDALS.gold, 120000, "level takes at least 2 minutes")
-	assert_lte(CanyonCourse.MEDALS.bronze, 300000, "level fits in 5 minutes")
+	for t in RaceSetup.TRACKS:
+		assert_true(RaceRules.valid_thresholds(t.medals), t.id)
+		assert_gte(t.medals.gold, 90000, "%s is a real race" % t.id)
+		assert_lte(t.medals.silver, 300000, "%s fits in 5 minutes" % t.id)
 
 func test_rails_are_one_way() -> void:
 	var course: CanyonCourse = CANYON.new()
@@ -202,7 +278,7 @@ func test_finish_rolls_off_right_and_shows_stats() -> void:
 	practice._on_finish(wheel)
 	assert_true(practice.rules.finished)
 	assert_true(wheel.cruise)
-	assert_eq(practice.save.records[CanyonCourse.COURSE_ID].medal, "gold")
+	assert_eq(practice.save.records[practice.course.course_id].medal, "gold")
 	var start_x := wheel.global_position.x
 	for tick in 300:
 		await get_tree().process_frame
@@ -220,3 +296,15 @@ func test_course_gaps_are_open() -> void:
 		var mid: Vector3 = (gap[0] + gap[1]) * 0.5
 		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(mid + Vector3(0, 3, 0), mid + Vector3(0, -3, 0)))
 		assert_false(hit.has("collider"), "gap at %s must be open" % mid)
+
+
+func test_every_track_builds_with_its_rocket_bumps() -> void:
+	for t in RaceSetup.TRACKS:
+		var course: CanyonCourse = CANYON.new()
+		course.track_id = t.id
+		add_child_autofree(course)
+		assert_eq(course.course_id, t.id)
+		assert_eq(course.rocket_bumps, t.bumps.size(), "%s bumps" % t.id)
+		assert_gt(course.gates.size(), 3, t.id)
+		assert_eq(t.plan.back()[0], "FINAL", t.id)
+		assert_eq(t.plan.size() % 2, 1, "%s finishes running right" % t.id)

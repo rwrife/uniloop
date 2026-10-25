@@ -32,6 +32,11 @@ var _finish_timer := -1.0
 var _prior_best := -1
 var _touch: Dictionary = {}
 var _touch_buttons: Dictionary = {}
+## The 3-2-1-RACE! intro; the rider and clock are frozen until it ends.
+var countdown_enabled := true
+var racing := true
+var countdown_label: Label
+var _flash: ColorRect
 @onready var status: Label = $Hud/Root/Status
 @onready var pause_panel: PanelContainer = $Hud/Root/PausePanel
 @onready var pause_button: Button = $Hud/Root/Pause
@@ -127,13 +132,17 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	course = COURSE.new()
 	course.name = "CanyonRibbon"
+	course.track_id = RaceSetup.track_id
 	add_child(course)
 	rider = RIDER.new()
 	rider.name = "WheelRider"
 	rider.handling = HANDLING.new()
+	rider.frame_color = RaceSetup.uni().frame
+	rider.seat_color = RaceSetup.uni().seat
 	rider.course = course
 	rider.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(rider)
+	($Environment as WorldEnvironment).environment.background_color = course.track.sky[0]
 	rider.landed.connect(_on_landed)
 	rider.boosted.connect(_on_boosted)
 	rules = RaceRules.new(course.gates.size())
@@ -159,13 +168,66 @@ func _ready() -> void:
 		_build_touch_overlay()
 	_apply_safe_area()
 	get_viewport().size_changed.connect(_apply_safe_area)
+	if countdown_enabled:
+		_start_countdown()
+
+func _start_countdown() -> void:
+	racing = false
+	rider.process_mode = Node.PROCESS_MODE_DISABLED
+	_flash = ColorRect.new()
+	_flash.name = "CountdownFlash"
+	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flash.color = Color(1, 1, 1, 0)
+	$Hud/Root.add_child(_flash)
+	countdown_label = UniloopUI.chunky_label("", 240)
+	countdown_label.name = "Countdown"
+	countdown_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	countdown_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	countdown_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	countdown_label.process_mode = Node.PROCESS_MODE_PAUSABLE
+	$Hud/Root.add_child(countdown_label)
+	var beats := [["3", Color("ff3b30")], ["2", Color("ff9f1c")], ["1", Color("ffd60a")], ["RACE!", Color("39ff6a")]]
+	var tween := countdown_label.create_tween()
+	tween.tween_interval(0.45)
+	for i in beats.size():
+		tween.tween_callback(_countdown_beat.bind(beats[i][0], beats[i][1], i == beats.size() - 1))
+		if i < beats.size() - 1:
+			tween.tween_interval(0.9)
+
+func _countdown_beat(text: String, color: Color, go: bool) -> void:
+	countdown_label.text = text
+	countdown_label.add_theme_color_override("font_color", color)
+	countdown_label.add_theme_font_size_override("font_size", 300 if go else 240)
+	countdown_label.pivot_offset = countdown_label.size * 0.5
+	countdown_label.modulate.a = 1.0
+	countdown_label.scale = Vector2(3.2, 3.2)
+	countdown_label.rotation = randf_range(-0.35, 0.35)
+	var pop := countdown_label.create_tween().set_parallel()
+	pop.tween_property(countdown_label, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pop.tween_property(countdown_label, "rotation", randf_range(-0.08, 0.08), 0.32).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_flash.color = Color(color, 0.45 if go else 0.25)
+	_flash.create_tween().tween_property(_flash, "color:a", 0.0, 0.35)
+	_shake(0.35 if go else 0.15)
+	_sparks(color, 60 if go else 20)
+	if go:
+		racing = true
+		rider.process_mode = Node.PROCESS_MODE_PAUSABLE
+		pop.chain().tween_interval(0.35)
+		pop.chain().tween_property(countdown_label, "scale", Vector2(2.4, 2.4), 0.3)
+		pop.parallel().tween_property(countdown_label, "modulate:a", 0.0, 0.3)
+	else:
+		var beat := countdown_label.create_tween()
+		beat.tween_interval(0.4)
+		beat.tween_property(countdown_label, "scale", Vector2(0.85, 0.85), 0.45).set_trans(Tween.TRANS_SINE)
 
 func _physics_process(delta: float) -> void:
 	if get_tree().paused:
 		return
 	var here := rider.global_position
 	_rider_vx = lerpf(_rider_vx, (here.x - _last_pos.x) / maxf(delta, 0.0001), minf(1.0, delta * 6.0))
-	if rules.finished:
+	if rules.finished or not racing:
 		_last_pos = here
 		return
 	_milliseconds += delta * 1000.0
@@ -214,8 +276,8 @@ func _update_status() -> void:
 		UniloopUI.prompt(&"move_left", d), UniloopUI.prompt(&"move_right", d),
 		UniloopUI.prompt(&"zflip_left", d), UniloopUI.prompt(&"zflip_right", d),
 		UniloopUI.prompt(&"tabletop", d)]
-	status.text = "CANYON RIBBON  %s   Ride %s\nGate %d/%d  Speed %d  Score %d  Resets %d\n%s\n%s" % [
-		_format_time(rules.elapsed_ms), arrow, rules.next_checkpoint, course.gates.size(),
+	status.text = "%s  %s   Ride %s\nGate %d/%d  Speed %d  Score %d  Resets %d\n%s\n%s" % [
+		String(course.track.title).to_upper(), _format_time(rules.elapsed_ms), arrow, rules.next_checkpoint, course.gates.size(),
 		int(absf(rider.speed) * 3.6), rules.score, rules.resets, _message, prompts]
 
 func _format_time(ms: int) -> String:
@@ -233,7 +295,8 @@ func _on_landed(report: Dictionary) -> void:
 		_shake(0.3)
 		_sparks(Color(1.0, 0.45, 0.2), 40)
 		return
-	var quality := rules.land(report.impact, report.tilt)
+	# Plain hops don't feed the landing streak, so hop-spamming can't farm points.
+	var quality := rules.land(report.impact, report.tilt) if report.air_time >= 0.9 or report.count > 0 else "hop"
 	var tricks: Array = report.tricks
 	if report.count > 0:
 		var points: int = TRICK_SCORE * report.count * tricks.size()
@@ -244,7 +307,7 @@ func _on_landed(report: Dictionary) -> void:
 		_show_popup("%s\n+%d  BOOST!" % [" + ".join(tricks), points], Color(1.0, 0.86, 0.2))
 		_sparks(Color(1.0, 0.9, 0.3), 28)
 		_shake(0.12)
-	elif report.air_time > 0.5:
+	elif report.air_time > 0.5 and quality != "hop":
 		_message = "Landing: %s" % quality
 		_shake(0.1)
 
@@ -262,10 +325,10 @@ func _on_checkpoint(body: Node3D, index: int) -> void:
 func _on_finish(body: Node3D) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.finish():
 		return
-	var medal := RaceRules.medal(rules.elapsed_ms, course.MEDALS)
-	var prior: Dictionary = save.records.get(CanyonCourse.COURSE_ID, {})
+	var medal := RaceRules.medal(rules.elapsed_ms, course.medals)
+	var prior: Dictionary = save.records.get(course.course_id, {})
 	_prior_best = int(prior.get("best_ms", -1))
-	SaveStore.record_best(save, CanyonCourse.COURSE_ID, rules.elapsed_ms, medal, rules.score)
+	SaveStore.record_best(save, course.course_id, rules.elapsed_ms, medal, rules.score)
 	finish_stats = {
 		"time_ms": rules.elapsed_ms,
 		"medal": medal,

@@ -67,6 +67,81 @@ static func create_theme(settings: Dictionary) -> Theme:
 	return t
 
 
+const CHUNKY_FONT := preload("res://assets/fonts/Bangers-Regular.ttf")
+const POP_YELLOW := Color("ffd60a")
+const POP_PINK := Color("ff3fa4")
+const POP_PURPLE := Color("2a0b4a")
+const INK := Color("0d0418")
+
+
+## Big outlined cartoon text (Bangers) for titles and the race countdown.
+static func chunky_label(text: String, size: int, color := POP_YELLOW) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", CHUNKY_FONT)
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_color_override("font_outline_color", INK)
+	l.add_theme_constant_override("outline_size", maxi(6, size / 5))
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	l.add_theme_constant_override("shadow_offset_x", 0)
+	l.add_theme_constant_override("shadow_offset_y", maxi(3, size / 12))
+	return l
+
+
+## Chunky arcade button: yellow outlined Bangers text on a bordered purple
+## plate; hot-pink border when hovered or focused.
+static func chunky_button(text: String, size: int, minimum := Vector2.ZERO) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_ALL
+	b.custom_minimum_size = minimum
+	style_chunky(b, size)
+	return b
+
+
+static func style_chunky(b: Control, size: int) -> void:
+	b.add_theme_font_override("font", CHUNKY_FONT)
+	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_color_override("font_color", POP_YELLOW)
+	b.add_theme_color_override("font_hover_color", Color("fff3a0"))
+	b.add_theme_color_override("font_focus_color", Color("fff3a0"))
+	b.add_theme_color_override("font_pressed_color", Color("ff9f1c"))
+	b.add_theme_color_override("font_hover_pressed_color", Color("ff9f1c"))
+	b.add_theme_color_override("font_disabled_color", Color("8d7fa6"))
+	b.add_theme_color_override("font_outline_color", INK)
+	b.add_theme_constant_override("outline_size", maxi(6, size / 4))
+	var edge := maxi(4, size / 9)
+	var looks := {
+		"normal": [Color(0.17, 0.05, 0.31, 0.88), INK],
+		"hover": [Color(0.27, 0.08, 0.46, 0.94), POP_PINK],
+		"pressed": [Color(0.45, 0.12, 0.38, 0.96), POP_YELLOW],
+		"disabled": [Color(0.14, 0.11, 0.2, 0.7), Color("3b3050")],
+	}
+	for state in looks:
+		var box := StyleBoxFlat.new()
+		box.bg_color = looks[state][0]
+		box.border_color = looks[state][1]
+		box.set_border_width_all(edge)
+		box.set_corner_radius_all(edge * 4)
+		box.content_margin_left = size * 0.6
+		box.content_margin_right = size * 0.6
+		box.content_margin_top = size * 0.12
+		box.content_margin_bottom = size * 0.12
+		box.shadow_color = Color(0, 0, 0, 0.45)
+		box.shadow_size = 2
+		box.shadow_offset = Vector2(0, edge)
+		b.add_theme_stylebox_override(state, box)
+	b.add_theme_stylebox_override("hover_pressed", b.get_theme_stylebox("pressed"))
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.border_color = POP_PINK
+	focus.set_border_width_all(edge + 2)
+	focus.set_corner_radius_all(edge * 4 + 4)
+	focus.set_expand_margin_all(edge)
+	b.add_theme_stylebox_override("focus", focus)
+
+
 static func button(label: String, minimum_width: float = 0.0) -> Button:
 	var b := Button.new()
 	b.text = label
