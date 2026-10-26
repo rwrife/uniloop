@@ -93,11 +93,22 @@ func _build() -> void:
 	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var breathe_mat := ShaderMaterial.new()
+	var shader := Shader.new()
+	shader.code = """
+shader_type canvas_item;
+
+void fragment() {
+	// Smooth sine zoom sampled directly in the fragment shader without moving or
+	// resizing the Control rect on large screens or snapping to integer texels.
+	float zoom = 1.04 + 0.02 * sin(TIME * (3.14159265359 / 6.0));
+	vec2 centered = (UV - vec2(0.5, 0.5)) / zoom + vec2(0.5, 0.5);
+	COLOR = texture(TEXTURE, centered);
+}
+"""
+	breathe_mat.shader = shader
+	background.material = breathe_mat
 	add_child(background)
-	background.scale = Vector2(1.02, 1.02)
-	var breathe := background.create_tween().set_loops()
-	breathe.tween_property(background, "scale", Vector2(1.06, 1.06), 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	breathe.tween_property(background, "scale", Vector2(1.02, 1.02), 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 	safe = MarginContainer.new()
 	safe.name = "SafeMargin"
