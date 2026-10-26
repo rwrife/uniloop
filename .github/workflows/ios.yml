@@ -1,0 +1,58 @@
+name: iOS build
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install pinned Godot and iOS template
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c 'import json; print(json.load(open("docs/toolchain.json"))["godot_version"])')
+          BASE="https://github.com/godotengine/godot-builds/releases/download/$VERSION"
+          cd "$RUNNER_TEMP"
+          curl -fsSL -O "$BASE/Godot_v${VERSION}_macos.universal.zip"
+          curl -fsSL -O "$BASE/Godot_v${VERSION}_export_templates.tpz"
+          curl -fsSL -O "$BASE/SHA512-SUMS.txt"
+          for archive in "Godot_v${VERSION}_macos.universal.zip" "Godot_v${VERSION}_export_templates.tpz"; do
+            grep -F " $archive" SHA512-SUMS.txt | shasum -a 512 -c -
+          done
+          unzip -q "Godot_v${VERSION}_macos.universal.zip"
+          unzip -q "Godot_v${VERSION}_export_templates.tpz" templates/ios.zip
+          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/export_templates/${VERSION/-/.}"
+          mkdir -p "$TEMPLATE_DIR"
+          cp templates/ios.zip "$TEMPLATE_DIR/ios.zip"
+          echo "GODOT_BIN=$RUNNER_TEMP/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+      - name: Import and test
+        run: |
+          "$GODOT_BIN" --headless --path . --import --quit
+          "$GODOT_BIN" --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
+      - uses: actions/cache@v4
+        with:
+          path: build/toolchain
+          key: godot-ios-simulator-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('docs/toolchain.json', 'tools/prepare_ios_simulator.sh') }}
+      - name: Build device and simulator apps
+        run: tools/build_ios.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uniloop-ios-unsigned
+          path: |
+            build/ios/uniloop.xcodeproj
+            build/ios/uniloop
+            build/ios/uniloop.pck
+            build/ios/*.xcframework
+            build/ios/PrivacyInfo.xcprivacy
+            build/ios/DerivedData/Build/Products/Release-iphoneos/uniloop.app
+            build/ios/DerivedData/Build/Products/Release-iphonesimulator/uniloop.app
+          if-no-files-found: error

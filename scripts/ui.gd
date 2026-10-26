@@ -29,9 +29,21 @@ static func safe_margins(viewport_rect: Rect2i, safe_rect: Rect2i) -> Vector4i:
 		maxi(16, viewport_rect.end.y - safe_rect.end.y + 16))
 
 
+static func uses_ios_compatibility() -> bool:
+	# Godot's iOS simulator template uses Apple's software OpenGL renderer.
+	return OS.has_feature("ios") and RenderingServer.get_current_rendering_method() == "gl_compatibility"
+
+
+static func viewport_safe_rect(viewport: Viewport) -> Rect2i:
+	var safe := DisplayServer.get_display_safe_area()
+	if safe.size.x <= 0 or safe.size.y <= 0:
+		return Rect2i()
+	return Rect2i(viewport.get_screen_transform().affine_inverse() * Rect2(safe))
+
+
 static func apply_safe_area(margin: MarginContainer, touchscreen: bool) -> void:
 	var rect := Rect2i(Vector2i.ZERO, margin.get_viewport_rect().size)
-	var safe := DisplayServer.get_display_safe_area() if touchscreen else rect
+	var safe := viewport_safe_rect(margin.get_viewport()) if touchscreen else rect
 	var sides := safe_margins(rect, safe)
 	for pair in [["margin_left", sides.x], ["margin_top", sides.y],
 		["margin_right", sides.z], ["margin_bottom", sides.w]]:

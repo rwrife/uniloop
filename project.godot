@@ -13,10 +13,23 @@ boot_splash/stretch_mode=4
 boot_splash/image="res://assets/ui/boot_splash.png"
 boot_splash/minimum_display_time=600
 
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=0
+
+[physics]
+
+common/physics_interpolation=true
+
 [rendering]
 
 renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="mobile"
+textures/vram_compression/import_etc2_astc=true
 textures/default_filters/use_nearest_mipmap_filter=false
 
 [editor_plugins]

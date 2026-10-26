@@ -323,3 +323,37 @@ func test_every_track_builds_with_its_rocket_bumps() -> void:
 		assert_gt(course.gates.size(), 3, t.id)
 		assert_eq(t.plan.back()[0], "FINAL", t.id)
 		assert_eq(t.plan.size() % 2, 1, "%s finishes running right" % t.id)
+func test_render_batches_preserve_instances_and_separate_distant_geometry() -> void:
+	var course: CanyonCourse = CANYON.new()
+	add_child_autofree(course)
+	var mesh := BoxMesh.new()
+	var items := [
+		[Transform3D(Basis.IDENTITY, Vector3.ZERO), Color.RED],
+		[Transform3D(Basis.IDENTITY, Vector3(1, 0, 0)), Color.GREEN],
+		[Transform3D(Basis.IDENTITY, Vector3(100, 0, 0)), Color.BLUE],
+	]
+	var group := course._add_multimesh("BatchTest", mesh, items, false)
+	assert_eq(group.get_child_count(), 2, "Distant geometry must be culled separately")
+	var count := 0
+	for node: MultiMeshInstance3D in group.get_children():
+		var multi := node.multimesh
+		count += multi.instance_count
+		assert_eq(node.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	for item in items:
+		var enclosed := false
+		for node: MultiMeshInstance3D in group.get_children():
+			if node.multimesh.custom_aabb.encloses(item[0] * mesh.get_aabb()):
+				enclosed = true
+		assert_true(enclosed, "Every original instance must lie inside a render batch")
+	assert_eq(count, items.size(), "Every instance must be preserved")
+
+func test_respawn_snaps_interpolated_rider_and_camera() -> void:
+	var practice: Node3D = load("res://scenes/practice.tscn").instantiate()
+	practice.countdown_enabled = false
+	add_child_autofree(practice)
+	assert_eq(practice.get_node("Camera").physics_interpolation_mode, Node.PHYSICS_INTERPOLATION_MODE_OFF)
+	var where := Vector3(150, 80, -4)
+	practice.rider.reset_at(where, Vector3.RIGHT)
+	assert_true(practice.rider.get_global_transform_interpolated().origin.is_equal_approx(where))
+	practice._snap_camera()
+	assert_true(practice.get_node("Camera").global_position.is_equal_approx(practice._camera_target(false)))

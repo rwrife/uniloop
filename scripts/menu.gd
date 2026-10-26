@@ -41,6 +41,8 @@ func _ready() -> void:
 	_apply_layout()
 	get_viewport().size_changed.connect(_apply_layout)
 	_show_title()
+	if OS.get_environment("UNILOOP_BENCHMARK") == "1":
+		get_tree().root.add_child.call_deferred(load("res://scripts/performance_probe.gd").new())
 
 
 func _input(event: InputEvent) -> void:

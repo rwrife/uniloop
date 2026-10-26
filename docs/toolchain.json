@@ -34,6 +34,13 @@
       "targeted_device_family": "1,2",
       "tablet_support": true,
       "asc_bundle_registered": true
+    },
+    "macos": {
+      "status": "secondary",
+      "export_preset": "macOS",
+      "renderer": "Forward+",
+      "architecture": "universal",
+      "binary_format": "app/zip"
     }
   },
   "art_pipeline": {

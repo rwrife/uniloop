@@ -43,6 +43,7 @@ const STRIPE_LENGTH := 2.0
 const CHEVRON_SPACING := 7.0
 const COLLISION_HALF_DEPTH := 2.5
 const LAND_Z_TOLERANCE := 2.5
+const RENDER_CELL := 24.0
 const CELL := 20.0
 ## Rocket bumps sit this far before a leg's end: far enough that the launch
 ## lands back on the same leg before the turn.
@@ -633,6 +634,8 @@ func find_landing(from: Vector3, to: Vector3, velocity: Vector3, r: float, skip_
 
 func _paint(color: Color, emission := 0.0) -> StandardMaterial3D:
 	var paint := StandardMaterial3D.new()
+	if UniloopUI.uses_ios_compatibility():
+		paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.albedo_color = color
 	paint.metallic = 0.25
 	paint.roughness = 0.3
@@ -644,6 +647,8 @@ func _paint(color: Color, emission := 0.0) -> StandardMaterial3D:
 
 func _build_rail() -> void:
 	var paint := StandardMaterial3D.new()
+	if UniloopUI.uses_ios_compatibility():
+		paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.vertex_color_use_as_albedo = true
 	paint.metallic = 0.3
 	paint.roughness = 0.22
@@ -687,7 +692,7 @@ func _build_rail() -> void:
 	drip.rings = 4
 	var drip_paint := ShaderMaterial.new()
 	drip_paint.shader = Shader.new()
-	drip_paint.shader.code = DRIP_SHADER
+	drip_paint.shader.code = DRIP_SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode unshaded;") if UniloopUI.uses_ios_compatibility() else DRIP_SHADER
 	drip.material = drip_paint
 	var stripes: Array = []
 	var joints: Array = []
@@ -758,8 +763,7 @@ func _build_rail() -> void:
 	_add_multimesh("Chevrons", chevron, arrows)
 	_add_multimesh("Goo", goo_coat, coats)
 	_add_multimesh("GooLumps", goo_lump, lumps)
-	var drip_node := _add_multimesh("GooDrips", drip, drips)
-	drip_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_add_multimesh("GooDrips", drip, drips, false)
 	if not drop_points.is_empty():
 		_add_goo_droplets(drop_points, goo_paint)
 
@@ -791,20 +795,40 @@ func _add_goo_droplets(points: PackedVector3Array, paint: StandardMaterial3D) ->
 	drops.visibility_aabb = AABB(bounds.position - Vector3(10, 30, 10), bounds.size + Vector3(20, 40, 20))
 	add_child(drops)
 
-func _add_multimesh(node_name: String, mesh: Mesh, items: Array) -> MultiMeshInstance3D:
-	var multi := MultiMesh.new()
-	multi.transform_format = MultiMesh.TRANSFORM_3D
-	multi.use_colors = true
-	multi.mesh = mesh
-	multi.instance_count = items.size()
-	for i in items.size():
-		multi.set_instance_transform(i, items[i][0])
-		multi.set_instance_color(i, (items[i][1] as Color).srgb_to_linear())
-	var node := MultiMeshInstance3D.new()
-	node.name = node_name
-	node.multimesh = multi
-	add_child(node)
-	return node
+func _add_multimesh(node_name: String, mesh: Mesh, items: Array, shadows := true) -> Node3D:
+	# Godot culls a MultiMesh as one object. Course-wide batches submitted every
+	# rail segment even though the side camera can only see a few metres.
+	var group := Node3D.new()
+	group.name = node_name
+	var cells: Dictionary = {}
+	for item in items:
+		var at: Vector3 = item[0].origin
+		var key := Vector3i(floori(at.x / RENDER_CELL), floori(at.y / RENDER_CELL), floori(at.z / RENDER_CELL))
+		if not cells.has(key):
+			cells[key] = []
+		cells[key].append(item)
+	for key: Vector3i in cells:
+		var batch: Array = cells[key]
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		multi.use_colors = true
+		multi.mesh = mesh
+		multi.instance_count = batch.size()
+		var box: AABB = batch[0][0] * mesh.get_aabb()
+		for i in batch.size():
+			multi.set_instance_transform(i, batch[i][0])
+			multi.set_instance_color(i, (batch[i][1] as Color).srgb_to_linear())
+			box = box.merge(batch[i][0] * mesh.get_aabb())
+		# Include the animated goo tips beyond their undeformed mesh bounds.
+		multi.custom_aabb = box.grow(3.0)
+		var node := MultiMeshInstance3D.new()
+		node.name = "Cell_%d_%d_%d" % [key.x, key.y, key.z]
+		node.multimesh = multi
+		if not shadows:
+			node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		group.add_child(node)
+	add_child(group)
+	return group
 
 func _build_collision() -> void:
 	var faces := PackedVector3Array()

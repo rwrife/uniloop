@@ -62,10 +62,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED] and is_node_ready():
+		_set_paused(true)
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_set_paused(not pause_panel.visible)
 
 func _set_paused(enabled: bool) -> void:
+	_release_touches()
+	var overlay := $Hud/Root.get_node_or_null("TouchOverlay")
+	if overlay:
+		overlay.visible = not enabled
 	pause_panel.visible = enabled
 	_pause_dim.visible = enabled
 	get_tree().paused = enabled
@@ -132,6 +138,11 @@ func _restart_course() -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	$Camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	if UniloopUI.uses_ios_compatibility():
+		$Sun.shadow_enabled = false
+		get_viewport().scaling_3d_scale = 1.0
+		($Environment as WorldEnvironment).environment.glow_enabled = false
 	course = COURSE.new()
 	course.name = "CanyonRibbon"
 	course.track_id = RaceSetup.track_id
@@ -393,14 +404,15 @@ func _reset() -> void:
 	_snap_camera()
 	_show_popup("FELL!  +%dS" % (RaceRules.RESET_PENALTY_MS / 1000), Color(1.0, 0.3, 0.25))
 
-func _camera_target() -> Vector3:
+func _camera_target(interpolated := true) -> Vector3:
 	var h := rider.handling
 	var lead := h.camera_lead * clampf(_rider_vx / h.max_speed, -1.0, 1.0)
-	var p := rider.global_position
+	var p := rider.get_global_transform_interpolated().origin if interpolated else rider.global_position
 	return Vector3(p.x + lead, p.y + h.camera_height, p.z + h.camera_distance)
 
 func _snap_camera() -> void:
-	$Camera.global_position = _camera_target()
+	$Camera.global_position = _camera_target(false)
+	$Camera.reset_physics_interpolation()
 	$Camera.rotation = Vector3.ZERO
 
 func _shake(amount: float) -> void:
@@ -645,7 +657,7 @@ func _show_stats() -> void:
 
 func _apply_safe_area() -> void:
 	var viewport_rect := Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size)
-	var margins := UniloopUI.safe_margins(viewport_rect, DisplayServer.get_display_safe_area())
+	var margins := UniloopUI.safe_margins(viewport_rect, UniloopUI.viewport_safe_rect(get_viewport()) if DisplayServer.is_touchscreen_available() else viewport_rect)
 	status.position = Vector2(margins.x, margins.y)
 	status.size = Vector2.ZERO
 	$Hud/Root/Pause.offset_top = margins.y
@@ -712,7 +724,7 @@ func _handle_touch(event: InputEvent) -> void:
 		return
 	var held: StringName = _touch.get(event.index, &"")
 	var target := &""
-	if event is InputEventScreenDrag or event.pressed:
+	if event is InputEventScreenDrag or (event.pressed and not event.canceled):
 		target = _touch_action(event.position)
 	if target == held:
 		return
@@ -726,6 +738,8 @@ func _handle_touch(event: InputEvent) -> void:
 		_touch_buttons[target].modulate = Color(1.6, 1.6, 1.6)
 
 func _release_touches() -> void:
+	for button: Panel in _touch_buttons.values():
+		button.modulate = Color.WHITE
 	for action in _touch.values():
 		Input.action_release(action)
 	_touch.clear()

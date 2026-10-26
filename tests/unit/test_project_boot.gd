@@ -50,7 +50,7 @@ func test_toolchain_pin_matches_running_editor() -> void:
 
 func test_app_identifier_prefix_in_presets() -> void:
 	var text := FileAccess.get_file_as_string("res://export_presets.cfg")
-	assert_eq(text.count("com.infinityball.uniloop"), 2)
+	assert_eq(text.count("com.infinityball.uniloop"), 3)
 
 
 func test_generated_icon_is_wired_into_all_export_targets() -> void:
@@ -64,5 +64,5 @@ func test_generated_icon_is_wired_into_all_export_targets() -> void:
 	assert_true(FileAccess.file_exists("res://AppStore/icon.ico"))
 	assert_eq(ProjectSettings.get_setting("application/config/windows_native_icon"), "res://AppStore/icon.ico")
 	assert_true(presets.contains("application/icon=\"res://AppStore/icon.ico\""))
-	for entry in ["launcher_icons/main_192", "icons/iphone_120", "icons/ipad_152"]:
+	for entry in ["launcher_icons/main_192", "icons/iphone_120x120", "icons/ipad_152x152"]:
 		assert_true(presets.contains(entry + "=\"res://AppStore/icon.png\""), entry + " must use the generated icon")

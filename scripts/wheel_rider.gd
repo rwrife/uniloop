@@ -64,6 +64,8 @@ func _ready() -> void:
 
 func _material(color: Color, metallic: float, roughness: float) -> StandardMaterial3D:
 	var paint := StandardMaterial3D.new()
+	if UniloopUI.uses_ios_compatibility():
+		paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.albedo_color = color
 	paint.metallic = metallic
 	paint.roughness = roughness
@@ -408,6 +410,7 @@ func place_on(index: int, s: float) -> void:
 	_place(smp, 1.0)
 	pitch = _surface_pitch(smp.t)
 	drive_dir = smp.drive
+	_reset_visual_motion()
 
 func reset_at(where: Vector3, heading: Vector3) -> void:
 	global_position = where
@@ -417,6 +420,15 @@ func reset_at(where: Vector3, heading: Vector3) -> void:
 	yaw = 0.0 if heading.x >= 0.0 else PI
 	pitch = 0.0
 	_clear_state()
+	_reset_visual_motion()
+
+func _reset_visual_motion() -> void:
+	if not is_node_ready():
+		return
+	_update_pose(0.0)
+	# Prime the camera interpolation pump, then snap every visual on teleports.
+	get_global_transform_interpolated()
+	reset_physics_interpolation()
 
 func _clear_state() -> void:
 	_skip_sec = -1
