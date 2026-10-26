@@ -17,7 +17,7 @@ The v0.2.0 Windows release passed export, icon/metadata, and headless test check
 
 ## Desktop screenshots
 
-Captured from the actual game running on macOS with Godot 4.7.2 and the Forward+ renderer. Gameplay views use staged positions on the existing courses with the original HUD; these are game renders, not concept art.
+Captured from the actual game running on macOS with Godot 4.7.2 and the Forward+ renderer. Gameplay views use staged positions on the existing courses with the original HUD; these are game renders, not concept art. See the [capture instructions](docs/desktop-screenshots.md) to reproduce them.
 
 ![Uniloop desktop title screen with Quick Race, League, Options, and Quit](AppStore/screenshots/macos/07-title-screen.png)
 
