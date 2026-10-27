@@ -11,7 +11,7 @@ const ACTIONS: Array[StringName] = [&"move_left", &"move_right", &"flip_back", &
 const TRICK_SCORE := 500
 const CRASH_PENALTY := 250
 const CAMERA_TRACK_X := 12.0
-const STATS_DELAY := 3.0
+const STATS_DELAY := 1.0 # ponytail: fixed rollout; tune by course only if measured footage needs it.
 var course: CanyonCourse
 var rider: WheelRider
 var rules: RaceRules
@@ -264,7 +264,7 @@ func _process(delta: float) -> void:
 	if rules.finished:
 		if _finish_timer >= 0.0 and not stats_panel.visible:
 			_finish_timer += delta
-			if _finish_timer > STATS_DELAY or not camera.is_position_in_frustum(rider.global_position):
+			if _finish_timer >= STATS_DELAY:
 				_show_stats()
 	else:
 		var destination := _camera_target()
@@ -394,7 +394,7 @@ func _on_finish(body: Node3D) -> void:
 	rider.cruise = true
 	rider.recover_time = 0.0
 	_finish_timer = 0.0
-	_show_popup("FINISH!", Color(1.0, 0.86, 0.2), 1.2)
+	popup.visible = false # Clear prior checkpoint/trick popup during finish rollout.
 
 func _reset() -> void:
 	var spot := course.spawn(_last_gate)

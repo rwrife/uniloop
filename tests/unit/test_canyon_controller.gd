@@ -294,13 +294,19 @@ func test_finish_rolls_off_right_and_shows_stats() -> void:
 	assert_true(practice.rules.finished)
 	assert_true(wheel.cruise)
 	assert_eq(practice.save.records[practice.course.course_id].medal, "gold")
+	assert_false(practice.popup.visible, "no small FINISH popup before stats")
 	var start_x := wheel.global_position.x
-	for tick in 300:
+	await get_tree().create_timer(0.4).timeout
+	assert_false(practice.stats_panel.visible, "keep rider on screen for rollout")
+	assert_gt(wheel.global_position.x, start_x, "rider continues past finish")
+	for tick in 180:
 		await get_tree().process_frame
 		if practice.stats_panel.visible:
 			break
 	assert_true(practice.stats_panel.visible, "stats screen appears after the roll-out")
-	assert_gt(wheel.global_position.x, start_x + 5.0, "rider rolls forward off screen, not backward")
+	assert_gte(practice._finish_timer, practice.STATS_DELAY, "hold rollout one full second")
+	assert_lte(practice._finish_timer, practice.STATS_DELAY + 0.2, "do not wait for camera exit")
+	await get_tree().process_frame # Let the stats entrance coroutine finish its first-frame setup.
 	assert_true(practice.get_node("Hud/Root/StatsPanel/Box/Buttons/Again").has_focus())
 
 func test_course_gaps_are_open() -> void:
