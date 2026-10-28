@@ -301,9 +301,11 @@ func _fit_panel() -> void:
 	var room := get_viewport_rect().size - Vector2(
 		safe.get_theme_constant("margin_left") + safe.get_theme_constant("margin_right"),
 		safe.get_theme_constant("margin_top") + safe.get_theme_constant("margin_bottom"))
+	# Portrait uni picker has three rows; give it height before enabling scrolling.
+	var height := 920.0 if screen == "uni" and room.x < room.y else float({"track": 580.0, "uni": 760.0}.get(screen, 860.0))
 	panel.custom_minimum_size = Vector2(
 		minf(room.x, float(widths.get(screen, 860.0)) * s),
-		minf(room.y, float({"track": 580.0, "uni": 760.0}.get(screen, 860.0)) * s))
+		minf(room.y, height * s))
 
 
 func _first_focusable(node: Node) -> Control:
@@ -342,14 +344,14 @@ func _build_uni_picker() -> void:
 	panel_title.text = "PICK YOUR UNI"
 	var s := _ui_scale()
 	var grid := GridContainer.new()
-	grid.columns = 3
+	grid.columns = 2 if get_viewport_rect().size.x < get_viewport_rect().size.y else 3
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	grid.add_theme_constant_override("h_separation", int(22 * s))
-	grid.add_theme_constant_override("v_separation", int(18 * s))
+	grid.add_theme_constant_override("h_separation", int(12 * s))
+	grid.add_theme_constant_override("v_separation", int(10 * s))
 	panel_body.add_child(grid)
 	for i in RaceSetup.UNIS.size():
 		var info: Dictionary = RaceSetup.UNIS[i]
-		var card := _card(Vector2(260, 230) * s)
+		var card := _card(Vector2(234, 207) * s)
 		card.name = "Uni%d" % i
 		var box := _card_box(card)
 		var icon := UniIcon.new()
