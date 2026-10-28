@@ -135,6 +135,23 @@ func test_quick_race_flow_picks_uni_then_track() -> void:
 	RaceSetup.track_id = RaceSetup.DEFAULT_TRACK
 
 
+func test_uni_picker_fits_portrait_without_scroll() -> void:
+	var window := get_tree().root
+	var original_size := window.size
+	window.size = Vector2i(390, 844)
+	await wait_process_frames(3)
+	var menu: Control = load("res://scenes/menu.tscn").instantiate()
+	add_child_autofree(menu)
+	menu._open("uni")
+	await wait_process_frames(3)
+	var grid: GridContainer = menu.panel_body.get_child(0)
+	var scroll: ScrollContainer = menu.panel_body.get_parent()
+	assert_eq(grid.columns, 2)
+	assert_eq(menu.cards.size(), RaceSetup.UNIS.size())
+	assert_false(scroll.get_v_scroll_bar().visible, "all six unis fit without scrolling")
+	assert_false(scroll.get_h_scroll_bar().visible)
+	window.size = original_size
+
 func test_league_lists_every_track() -> void:
 	var menu: Control = load("res://scenes/menu.tscn").instantiate()
 	add_child_autofree(menu)
