@@ -124,6 +124,43 @@ func test_goo_is_forward_only() -> void:
 	assert_gt(wheel.speed, 0.0)
 	assert_lte(wheel.speed, wheel.handling.goo_speed + 0.01)
 
+func test_goo_sprays_only_while_wheel_rolls_through_slime() -> void:
+	var practice := _practice()
+	var course: CanyonCourse = practice.course
+	var wheel: WheelRider = practice.rider
+	var spray: CPUParticles3D = wheel.get_node("GooSplatter")
+	assert_false(spray.emitting, "no slime at spawn")
+	var spot := {}
+	for i in course.sections.size():
+		var sec: CanyonCourse.Section = course.sections[i]
+		for k in sec.kinds.size():
+			if sec.kinds[k] == CanyonCourse.GOO and absf(sec.seg_tangents[k].y) < 0.05:
+				spot = {"sec": i, "s": sec.cum[k] + 0.5}
+				break
+		if not spot.is_empty():
+			break
+	assert_false(spot.is_empty(), "flat goo exists")
+	wheel.place_on(spot.sec, spot.s)
+	wheel.speed = 2.0
+	for tick in 3:
+		await get_tree().physics_frame
+	assert_true(spray.emitting, "rolling wheel throws slime")
+	assert_true(spray.position.distance_to(wheel.to_local(course.sample(wheel.section, wheel.distance).pos)) < 0.01, "spray starts at tire contact")
+	wheel.place_on(course.start_spot.sec, course.start_spot.s)
+	wheel.speed = 2.0
+	for tick in 3:
+		await get_tree().physics_frame
+	assert_false(spray.emitting, "clean rail does not spray")
+	wheel.place_on(spot.sec, spot.s)
+	wheel.speed = 2.0
+	for tick in 3:
+		await get_tree().physics_frame
+	assert_true(spray.emitting, "spray resumes in goo")
+	wheel.reset_at(Vector3(0, 4, 0), Vector3.RIGHT)
+	assert_false(spray.emitting, "reset clears spray immediately")
+	await get_tree().physics_frame
+	assert_false(spray.emitting, "airborne wheel cannot spray")
+
 func test_released_twist_settles_and_lands() -> void:
 	var practice := _practice()
 	var report := await _drop_onto_start(practice, func(wheel: WheelRider) -> void:
