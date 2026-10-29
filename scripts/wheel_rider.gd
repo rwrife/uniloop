@@ -41,6 +41,7 @@ var top_speed := 0.0
 var _wheel_spin := 0.0
 var _pose: Node3D
 var _trail: CPUParticles3D
+var _goo_splatter: CPUParticles3D
 var _skip_sec := -1
 var _skip_lo := 0.0
 var _skip_hi := 0.0
@@ -61,6 +62,8 @@ func _ready() -> void:
 	_pose.add_child(_build_frame())
 	_trail = _build_trail()
 	add_child(_trail)
+	_goo_splatter = _build_goo_splatter()
+	add_child(_goo_splatter)
 
 func _material(color: Color, metallic: float, roughness: float) -> StandardMaterial3D:
 	var paint := StandardMaterial3D.new()
@@ -157,6 +160,35 @@ func _build_trail() -> CPUParticles3D:
 	ramp.set_color(1, Color(1.0, 0.3, 0.1, 0.0))
 	trail.color_ramp = ramp
 	return trail
+
+## Small translucent droplets leave the contact patch in world space; no texture asset needed.
+func _build_goo_splatter() -> CPUParticles3D:
+	var spray := CPUParticles3D.new()
+	spray.name = "GooSplatter"
+	spray.position.y = -handling.wheel_radius
+	spray.emitting = false
+	spray.amount = 32
+	spray.lifetime = 0.55
+	spray.local_coords = false
+	spray.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	spray.emission_sphere_radius = 0.12
+	spray.direction = Vector3.UP
+	spray.spread = 65.0
+	spray.initial_velocity_min = 2.0
+	spray.initial_velocity_max = 4.0
+	spray.gravity = Vector3(0, -9.8, 0)
+	spray.scale_amount_min = 0.5
+	spray.scale_amount_max = 1.3
+	var droplet := SphereMesh.new()
+	droplet.radius = 0.075
+	droplet.height = 0.15
+	droplet.radial_segments = 6
+	droplet.rings = 3
+	var paint := _material(Color(0.13, 0.9, 0.06, 0.85), 0.0, 0.2)
+	paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	droplet.material = paint
+	spray.mesh = droplet
+	return spray
 
 func _active() -> bool:
 	return not cruise and recover_time <= 0.0
@@ -398,6 +430,12 @@ func _update_pose(delta: float) -> void:
 	_wheel_spin -= speed / handling.wheel_radius * delta
 	_pose.get_node("WheelPrimitive").rotation.z = _wheel_spin
 	_trail.emitting = boost_time > 0.0 or absf(speed) > handling.max_speed * 0.92
+	var in_goo: bool = grounded and course != null and course.sample(section, distance).kind == CanyonCourse.GOO
+	_goo_splatter.emitting = in_goo and absf(speed) > 0.1 and recover_time <= 0.0
+	if _goo_splatter.emitting:
+		var contact: Dictionary = course.sample(section, distance)
+		_goo_splatter.position = to_local(contact.pos)
+		_goo_splatter.direction = (basis.inverse() * (contact.n * 0.8 - contact.seg_t * signf(speed))).normalized()
 
 func place_on(index: int, s: float) -> void:
 	section = index
@@ -431,6 +469,8 @@ func _reset_visual_motion() -> void:
 	reset_physics_interpolation()
 
 func _clear_state() -> void:
+	if _goo_splatter != null:
+		_goo_splatter.emitting = false
 	_skip_sec = -1
 	twist = 0.0
 	zflip = 0.0
