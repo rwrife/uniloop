@@ -40,6 +40,8 @@ var bank_angle := 0.0
 var top_speed := 0.0
 var _wheel_spin := 0.0
 var _landing_squash := 0.0
+var _jump_input_consumed := false
+var _jump_released := false
 var _lean_motion := Vector3.ZERO
 var _pose: Node3D
 var _trail: CPUParticles3D
@@ -253,6 +255,21 @@ func _build_mud_clumps() -> CPUParticles3D:
 func _active() -> bool:
 	return not cruise and recover_time <= 0.0
 
+func consume_jump_input() -> void:
+	_jump_input_consumed = Input.is_action_pressed(&"jump") or Input.is_action_just_pressed(&"jump")
+	_jump_released = not Input.is_action_pressed(&"jump")
+
+func _input(event: InputEvent) -> void:
+	if not _jump_input_consumed:
+		return
+	if event.is_action_released(&"jump"):
+		_jump_released = true
+	elif _jump_released and event.is_action_pressed(&"jump") and not event.is_echo():
+		_jump_input_consumed = false
+
+func _jump_just_pressed() -> bool:
+	return not _jump_input_consumed and Input.is_action_just_pressed(&"jump")
+
 func _physics_process(delta: float) -> void:
 	recover_time = maxf(0.0, recover_time - delta)
 	boost_time = maxf(0.0, boost_time - delta)
@@ -262,6 +279,10 @@ func _physics_process(delta: float) -> void:
 		_air_step(delta)
 	top_speed = maxf(top_speed, absf(speed))
 	_update_pose(delta)
+	# Clear after stepping so a released quick tap cannot leak its press edge.
+	if not Input.is_action_pressed(&"jump"):
+		_jump_input_consumed = false
+		_jump_released = false
 
 func _ground_step(delta: float) -> void:
 	var h := handling
@@ -336,7 +357,7 @@ func _ground_step(delta: float) -> void:
 	var grip: float = speed * speed * smp.curv + h.gravity * smp.n.y
 	if grip < 0.0 and absf(speed) > 1.0:
 		_leave_ground(smp.seg_t * speed)
-	elif _active() and smp.drive != 0 and smp.kind != CanyonCourse.GOO and smp.kind != CanyonCourse.TURN and Input.is_action_just_pressed(&"jump"):
+	elif _active() and smp.drive != 0 and smp.kind != CanyonCourse.GOO and smp.kind != CanyonCourse.TURN and _jump_just_pressed():
 		_leave_ground(smp.seg_t * speed + smp.n * h.jump_speed)
 
 func _place(smp: Dictionary, delta: float) -> void:
@@ -389,7 +410,7 @@ func _air_step(delta: float) -> void:
 				tabletop_time += delta
 		else:
 			tabletop = move_toward(tabletop, 0.0, 6.0 * delta)
-		if Input.is_action_just_pressed(&"jump"):
+		if _jump_just_pressed():
 			pump_queued = true
 		if flip == 0.0:
 			var upright := wrapf(pitch, -PI, PI)
@@ -587,3 +608,5 @@ func _clear_state() -> void:
 	recover_time = 0.0
 	pump_queued = false
 	cruise = false
+	_jump_input_consumed = false
+	_jump_released = false
