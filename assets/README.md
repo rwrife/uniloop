@@ -33,3 +33,5 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | `assets/audio/sfx/land_clean.wav` | SFX | `procedural` | Same generator; short low thump with soft noise click, 0.220 s | Active; no external audio |
 | `assets/audio/sfx/slime_land.wav` | SFX | `procedural` | Same generator; wobbly low squidgy drop over smoothed noise, 0.430 s | Active; no external audio |
 | `assets/audio/sfx/boost.wav` | SFX | `procedural` | Same generator; filtered noise sweep with rising whistle, 0.530 s | Active; no external audio |
+| `assets/audio/music/title.ogg` | Audio Music | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2, prompt: carnival fairground instrumental, calliope/brass/tuba/banjo, 60s) | Accepted; title screen bgm |
+| `assets/audio/music/race_loop.ogg` | Audio Music | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2, prompt: fast repetitive arcade racing loop, four-on-floor/banjo/tuba, 28s seamless wrap crossfade) | Accepted; in-race loop bgm |
