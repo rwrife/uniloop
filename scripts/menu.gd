@@ -56,6 +56,10 @@ func _input(event: InputEvent) -> void:
 	if detected != current_device and not (event is InputEventMouseMotion):
 		current_device = detected
 		_update_device_prompt()
+	if _is_submit_event(event):
+		if _activate_focused_control():
+			get_viewport().set_input_as_handled()
+			return
 	if remapping_action != &"" and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode != Key.KEY_ESCAPE:
 			UniloopUI.remap(save, remapping_action, event)
@@ -67,6 +71,28 @@ func _input(event: InputEvent) -> void:
 	if screen != "title" and (event.is_action_pressed(&"pause") or event.is_action_pressed(&"ui_cancel")):
 		_go_back()
 		get_viewport().set_input_as_handled()
+
+
+func _is_submit_event(event: InputEvent) -> bool:
+	if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"jump"):
+		return true
+	if event is InputEventJoypadButton:
+		var joy := event as InputEventJoypadButton
+		return joy.pressed and joy.button_index == JOY_BUTTON_A
+	return false
+
+
+func _activate_focused_control() -> bool:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null or not focused.is_visible_in_tree():
+		return false
+	if focused is BaseButton:
+		var button: BaseButton = focused
+		if button.disabled:
+			return false
+		button.pressed.emit()
+		return true
+	return false
 
 
 func _notification(what: int) -> void:
@@ -247,11 +273,12 @@ func _refresh_theme() -> void:
 func _update_device_prompt() -> void:
 	if device_label == null:
 		return
+	var mode := UniloopUI.mode_label(current_device)
 	var vp := Vector2i(get_viewport_rect().size)
 	if UniloopUI.mode(vp, DisplayServer.is_touchscreen_available()) == "desktop":
-		device_label.text = "%s  •  Enter/Space/A: Select  •  Esc/B: Back" % current_device.to_upper()
+		device_label.text = "%s  •  Enter/Space/A: Select  •  Esc/B: Back" % mode
 	else:
-		device_label.text = "%s  •  Tap to select" % current_device.to_upper()
+		device_label.text = "%s  •  Tap to select" % mode
 
 
 # --- Navigation -----------------------------------------------------------------

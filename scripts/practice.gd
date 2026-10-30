@@ -18,7 +18,6 @@ var rider: WheelRider
 var rules: RaceRules
 var save: Dictionary
 var save_path := "user://uniloop.json"
-var current_device := "keyboard"
 var tricks_landed := 0
 var best_combo := 0
 var crashes := 0
@@ -51,7 +50,6 @@ var finish_fx: FinishFX
 var audio: AUDIO
 
 func _input(event: InputEvent) -> void:
-	current_device = UniloopUI.device_for(event)
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_handle_touch(event)
 	if event.is_action_pressed(&"pause") and (stats_panel == null or not stats_panel.visible):
