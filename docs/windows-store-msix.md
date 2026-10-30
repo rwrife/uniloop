@@ -36,7 +36,6 @@ For compatibility, the workflow also reads repository **secrets** with those sam
 2. repository variable
 3. repository secret
 4. built-in fallback (`package_display_name` only, defaults to `Uniloop`)
-
 The workflow will fail if these values are missing or malformed, and it will not invent fallback identity metadata.
 `PFN`, `SID`, and Store ID are not substitutes for these manifest fields.
 
