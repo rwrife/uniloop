@@ -123,7 +123,7 @@ Required dispatch inputs:
 - `store_publisher` = Partner Center `Package/Identity/Publisher` (override; otherwise repository variable default)
 - `publisher_display_name` = Partner Center `Package/Properties/PublisherDisplayName` (override; otherwise repository variable default)
 
-Recommended repository Actions variable defaults: `WINDOWS_STORE_IDENTITY_NAME`, `WINDOWS_STORE_PUBLISHER`, `WINDOWS_STORE_PUBLISHER_DISPLAY_NAME`, and optional `WINDOWS_STORE_PACKAGE_DISPLAY_NAME`. These are non-secret manifest metadata, not secrets. `PFN`, `SID`, and Store ID are not substitutes for these manifest identity fields.
+Recommended repository Actions variable defaults: `WINDOWS_STORE_IDENTITY_NAME`, `WINDOWS_STORE_PUBLISHER`, `WINDOWS_STORE_PUBLISHER_DISPLAY_NAME`, and optional `WINDOWS_STORE_PACKAGE_DISPLAY_NAME`. The workflow accepts the same names as repository secrets for compatibility, with precedence input → variable → secret. `PFN`, `SID`, and Store ID are not substitutes for these manifest identity fields.
 
 Signing note: for Microsoft Store distribution, you do not need to buy or inject a signing certificate in this workflow. The Store signs submitted packages during certification/distribution. The generated MSIX is an unsigned submission artifact and is not intended as a directly installable local test package. See [docs/windows-store-msix.md](docs/windows-store-msix.md) for full setup/run/download steps.
 
