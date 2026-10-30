@@ -1,7 +1,17 @@
-Uniloop — offline 3D single-wheel momentum racing.
+Uniloop is an offline, single-player 3D momentum racer where one wheel is all you need.
 
-Ride an original one-wheel racer through Canyon Ribbon. Balance speed and tilt over banked turns, jumps, and checkpoint gates. Land cleanly, avoid resets, and improve your time and medal. Adaptive menus and controls support keyboard/gamepad on desktop and touch on phones and tablets. Settings include text scale, contrast, reduced shake, audio level, and keyboard remapping; progress saves locally.
+Ride a unicycle along twisting striped rails, launch into loops, choose alternate routes, and turn clean landings into points and speed boosts. Keep your momentum, jump over obstacles and goo, and push for a faster finish. Wipeouts cost points and bring your rider to a stop, so every landing matters.
 
-Windows Desktop is the current primary build. Android and iOS (phone and tablet) exports remain in development. More courses, ghost replays, and JSON record exchange are planned, not shipped. No account, ads, or trackers.
+FOUR ORIGINAL TRACKS
+Warm up on Sunny Sprint, tackle the climbs and muddy rails of Canyon Ribbon, race through the glowing loops of Neon Night, and take on the tougher forks and goo of Goo Gauntlet.
 
-Pre-release copy; verify all features on each platform before store publication.
+TRICKS, SPEED, AND MEDALS
+Pull off flips, rolls, side-flips, and tabletops in the air. Land cleanly to build your score and earn a burst of speed. Finish each race to see your time, medal, points, stunt count, top speed, and wipeouts, then chase your local best records in the League screen.
+
+YOUR WHEEL, YOUR CONTROLS
+Choose from six unicycle colours and play with a keyboard or gamepad. Remap keyboard controls and adjust text size, high contrast, reduced motion, camera shake, and separate music and sound-effects volume.
+
+OFFLINE BY DESIGN
+No account, ads, analytics, or internet connection required. Your settings and records stay saved locally on your device. Uniloop is a solo racing game, with no online multiplayer or live leaderboards.
+
+One wheel. Four tracks. Keep the momentum.
