@@ -54,20 +54,25 @@ jobs:
       VAR_STORE_PUBLISHER: ${{ vars.WINDOWS_STORE_PUBLISHER || vars.STORE_PUBLISHER || vars.UNILOOP_STORE_PUBLISHER }}
       VAR_PACKAGE_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PACKAGE_DISPLAY_NAME || vars.PACKAGE_DISPLAY_NAME || vars.UNILOOP_STORE_PACKAGE_DISPLAY_NAME }}
       VAR_PUBLISHER_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME || vars.PUBLISHER_DISPLAY_NAME || vars.UNILOOP_STORE_PUBLISHER_DISPLAY_NAME }}
+      SECRET_STORE_IDENTITY_NAME: ${{ secrets.WINDOWS_STORE_IDENTITY_NAME || secrets.STORE_IDENTITY_NAME || secrets.UNILOOP_STORE_IDENTITY_NAME }}
+      SECRET_STORE_PUBLISHER: ${{ secrets.WINDOWS_STORE_PUBLISHER || secrets.STORE_PUBLISHER || secrets.UNILOOP_STORE_PUBLISHER }}
+      SECRET_PACKAGE_DISPLAY_NAME: ${{ secrets.WINDOWS_STORE_PACKAGE_DISPLAY_NAME || secrets.PACKAGE_DISPLAY_NAME || secrets.UNILOOP_STORE_PACKAGE_DISPLAY_NAME }}
+      SECRET_PUBLISHER_DISPLAY_NAME: ${{ secrets.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME || secrets.PUBLISHER_DISPLAY_NAME || secrets.UNILOOP_STORE_PUBLISHER_DISPLAY_NAME }}
     steps:
       - name: Resolve dispatch overrides and repository variable defaults
         shell: pwsh
         run: |
-          function Resolve-Value([string]$inputValue, [string]$variableValue, [string]$fallback = '') {
+          function Resolve-Value([string]$inputValue, [string]$variableValue, [string]$secretValue, [string]$fallback = '') {
             if (-not [string]::IsNullOrWhiteSpace($inputValue)) { return $inputValue.Trim() }
             if (-not [string]::IsNullOrWhiteSpace($variableValue)) { return $variableValue.Trim() }
+            if (-not [string]::IsNullOrWhiteSpace($secretValue)) { return $secretValue.Trim() }
             return $fallback
           }
 
-          $storeIdentity = Resolve-Value $env:INPUT_STORE_IDENTITY_NAME $env:VAR_STORE_IDENTITY_NAME
-          $storePublisher = Resolve-Value $env:INPUT_STORE_PUBLISHER $env:VAR_STORE_PUBLISHER
-          $packageDisplay = Resolve-Value $env:INPUT_PACKAGE_DISPLAY_NAME $env:VAR_PACKAGE_DISPLAY_NAME 'Uniloop'
-          $publisherDisplay = Resolve-Value $env:INPUT_PUBLISHER_DISPLAY_NAME $env:VAR_PUBLISHER_DISPLAY_NAME
+          $storeIdentity = Resolve-Value $env:INPUT_STORE_IDENTITY_NAME $env:VAR_STORE_IDENTITY_NAME $env:SECRET_STORE_IDENTITY_NAME
+          $storePublisher = Resolve-Value $env:INPUT_STORE_PUBLISHER $env:VAR_STORE_PUBLISHER $env:SECRET_STORE_PUBLISHER
+          $packageDisplay = Resolve-Value $env:INPUT_PACKAGE_DISPLAY_NAME $env:VAR_PACKAGE_DISPLAY_NAME $env:SECRET_PACKAGE_DISPLAY_NAME 'Uniloop'
+          $publisherDisplay = Resolve-Value $env:INPUT_PUBLISHER_DISPLAY_NAME $env:VAR_PUBLISHER_DISPLAY_NAME $env:SECRET_PUBLISHER_DISPLAY_NAME
 
           "STORE_IDENTITY_NAME=$storeIdentity" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "STORE_PUBLISHER=$storePublisher" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -102,7 +107,7 @@ jobs:
 
           $identity = $env:STORE_IDENTITY_NAME
           if ([string]::IsNullOrWhiteSpace($identity)) {
-            throw "store_identity_name is required (input or repo variable WINDOWS_STORE_IDENTITY_NAME/STORE_IDENTITY_NAME/UNILOOP_STORE_IDENTITY_NAME) and must exactly match Partner Center"
+            throw "store_identity_name is required and must exactly match Partner Center. Provide it via workflow input, repo variable (WINDOWS_STORE_IDENTITY_NAME/STORE_IDENTITY_NAME/UNILOOP_STORE_IDENTITY_NAME), or repo secret with the same names."
           }
           if ($identity -notmatch '^[A-Za-z0-9][A-Za-z0-9\.\-]{1,48}[A-Za-z0-9]$' -or -not $identity.Contains('.')) {
             throw "store_identity_name format is invalid ('$identity'). Expected Partner Center identity name such as 12345InfinityBall.Uniloop."
@@ -110,7 +115,7 @@ jobs:
 
           $publisher = $env:STORE_PUBLISHER
           if ([string]::IsNullOrWhiteSpace($publisher)) {
-            throw "store_publisher is required (input or repo variable WINDOWS_STORE_PUBLISHER/STORE_PUBLISHER/UNILOOP_STORE_PUBLISHER) and must exactly match Partner Center"
+            throw "store_publisher is required and must exactly match Partner Center. Provide it via workflow input, repo variable (WINDOWS_STORE_PUBLISHER/STORE_PUBLISHER/UNILOOP_STORE_PUBLISHER), or repo secret with the same names."
           }
           if ($publisher -notmatch '^CN=.+') {
             throw "store_publisher must start with 'CN=' and match Partner Center exactly (got '$publisher')"
@@ -120,7 +125,7 @@ jobs:
             throw "package_display_name cannot be empty"
           }
           if ([string]::IsNullOrWhiteSpace($env:PUBLISHER_DISPLAY_NAME)) {
-            throw "publisher_display_name cannot be empty (set input or repo variable WINDOWS_STORE_PUBLISHER_DISPLAY_NAME/PUBLISHER_DISPLAY_NAME/UNILOOP_STORE_PUBLISHER_DISPLAY_NAME)"
+            throw "publisher_display_name cannot be empty. Provide it via workflow input, repo variable (WINDOWS_STORE_PUBLISHER_DISPLAY_NAME/PUBLISHER_DISPLAY_NAME/UNILOOP_STORE_PUBLISHER_DISPLAY_NAME), or repo secret with the same names."
           }
 
           $makeAppx = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin\*\x64\makeappx.exe" |

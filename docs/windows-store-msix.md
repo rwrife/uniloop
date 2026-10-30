@@ -17,7 +17,7 @@ Collect these exact values from Partner Center for the app and map them to workf
 | `Package/Identity/Publisher` | `store_publisher` | `CN=874CA4CF-90B8-4C53-AFBC-CCAC42030583` |
 | `Package/Properties/PublisherDisplayName` | `publisher_display_name` | `Infinityball` |
 
-These are manifest identity metadata, not secrets. Do not store these values as Actions secrets.
+These are manifest identity metadata, not secrets. Prefer **Actions variables** for them.
 
 You can provide defaults as repository **Actions variables** and still override at dispatch time:
 
@@ -29,6 +29,13 @@ You can provide defaults as repository **Actions variables** and still override 
 | `WINDOWS_STORE_PACKAGE_DISPLAY_NAME` (optional) | `package_display_name` |
 
 Compatibility aliases are also accepted if already configured: `STORE_IDENTITY_NAME`, `STORE_PUBLISHER`, `PUBLISHER_DISPLAY_NAME`, `PACKAGE_DISPLAY_NAME`, `UNILOOP_STORE_IDENTITY_NAME`, `UNILOOP_STORE_PUBLISHER`, `UNILOOP_STORE_PUBLISHER_DISPLAY_NAME`, `UNILOOP_STORE_PACKAGE_DISPLAY_NAME`.
+
+For compatibility, the workflow also reads repository **secrets** with those same names. Value precedence is:
+
+1. workflow_dispatch input
+2. repository variable
+3. repository secret
+4. built-in fallback (`package_display_name` only, defaults to `Uniloop`)
 
 The workflow will fail if these values are missing or malformed, and it will not invent fallback identity metadata.
 `PFN`, `SID`, and Store ID are not substitutes for these manifest fields.
