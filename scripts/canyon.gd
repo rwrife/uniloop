@@ -63,22 +63,25 @@ const BUMP_HEIGHT := 1.6
 const BUMP_RUN := 3.0
 const DRIP_SHADER := """
 shader_type spatial;
-uniform vec3 surface_color = vec3(0.12, 0.9, 0.06);
-uniform vec3 glow_color = vec3(0.05, 0.45, 0.02);
+uniform vec4 surface_color : source_color;
+uniform vec4 glow_color : source_color;
+uniform float glow_energy = 0.45;
 // Goo drip hanging from the rail; the top (+y) stays glued, the tip stretches.
 void vertex() {
 	float phase = COLOR.r * 6.2832;
 	float stretch = 0.75 + 0.3 * sin(TIME * 1.4 + phase) + 0.12 * sin(TIME * 3.1 + phase * 2.0);
 	float down = 0.5 - VERTEX.y;
 	VERTEX.y = 0.5 - down * stretch;
-	VERTEX.xz *= 1.0 + 0.9 * smoothstep(0.6, 1.0, down) * (1.0 - smoothstep(0.97, 1.0, down));
+	float thinning = mix(1.0, inversesqrt(max(stretch, 1.0)), down);
+	VERTEX.xz *= thinning;
+	NORMAL = normalize(vec3(NORMAL.x / thinning, NORMAL.y / stretch, NORMAL.z / thinning));
 }
 void fragment() {
-	ALBEDO = surface_color;
-	EMISSION = glow_color;
+	ALBEDO = surface_color.rgb;
+	EMISSION = glow_color.rgb * glow_energy;
 	ROUGHNESS = 0.05;
 	METALLIC = 0.1;
-	SPECULAR = 0.8;
+	SPECULAR = 0.5;
 }
 """
 const BACKDROP_SHADER := """
@@ -720,19 +723,14 @@ func _build_rail() -> void:
 	goo_lump.radial_segments = 10
 	goo_lump.rings = 5
 	goo_lump.material = goo_paint
-	var drip := CylinderMesh.new()
-	drip.top_radius = 0.19
-	drip.bottom_radius = 0.075
-	drip.height = 1.0
-	drip.radial_segments = 8
-	drip.rings = 4
+	var drip := _drip_mesh()
 	var drip_paint := ShaderMaterial.new()
 	drip_paint.shader = Shader.new()
 	drip_paint.shader.code = DRIP_SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode unshaded;") if UniloopUI.uses_ios_compatibility() else DRIP_SHADER
-	if course_id == "canyon_climb":
-		drip_paint.set_shader_parameter("surface_color", MUD_COLOR.srgb_to_linear())
-		drip_paint.set_shader_parameter("glow_color", MUD_COLOR.srgb_to_linear() * 0.3)
-	drip.material = drip_paint
+	drip_paint.set_shader_parameter("surface_color", goo_paint.albedo_color)
+	drip_paint.set_shader_parameter("glow_color", goo_paint.emission)
+	drip_paint.set_shader_parameter("glow_energy", goo_paint.emission_energy_multiplier)
+	drip.surface_set_material(0, drip_paint)
 	var stripes: Array = []
 	var joints: Array = []
 	var arrows: Array = []
@@ -786,15 +784,18 @@ func _build_rail() -> void:
 					var tip: Vector3 = edge[1] - edge[2] * RAIL_RADIUS
 					var sag := Basis(t * coat_r * 2.2, Vector3.UP * coat_r * 2.9, b3 * coat_r * 2.2)
 					lumps.append([Transform3D(sag, tip + Vector3.DOWN * coat_r * 0.45), Color.WHITE])
-					drips.append([Transform3D(Basis(t, Vector3.UP * 2.6, b3), tip + Vector3.DOWN * (coat_r + 1.3)), Color(_hash(tip), 0, 0)])
+					var width := _drip_width(tip)
+					var root: Vector3 = tip - edge[2] * coat_r * 0.35
+					drips.append([Transform3D(Basis(t * width, Vector3.UP * 2.6, b3 * width), root + Vector3.DOWN * 1.3), Color(_hash(tip), 0, 0)])
 				var drip_count := maxi(1, roundi(length / 1.6))
 				for j in drip_count:
 					var u := (j + _hash(b + Vector3(j, 1, 0)) * 0.8 + 0.1) / drip_count
 					var hang := 0.5 + 2.4 * pow(_hash(a + Vector3(j, 2, 0)), 1.8)
-					var top := a.lerp(b, u) - n * (RAIL_RADIUS + coat_r * 0.8)
+					var top := a.lerp(b, u) - n * (RAIL_RADIUS + coat_r * 0.35)
 					var down := Vector3.DOWN if n.y > 0.3 else -n
 					var side := t.cross(down).normalized()
-					drips.append([Transform3D(Basis(side, -down * hang, side.cross(-down)), top + down * hang * 0.5), Color(_hash(top), 0, 0)])
+					var width := _drip_width(top)
+					drips.append([Transform3D(Basis(side * width, -down * hang, side.cross(-down) * width), top + down * hang * 0.5), Color(_hash(top), 0, 0)])
 					if hang > 2.2:
 						drop_points.append(top + down * hang)
 	_add_multimesh("Rail", tube, stripes)
@@ -808,6 +809,46 @@ func _build_rail() -> void:
 
 func _hash(p: Vector3) -> float:
 	return fposmod(sin(p.dot(Vector3(12.9898, 78.233, 37.719))) * 43758.5453, 1.0)
+
+func _drip_width(at: Vector3) -> float:
+	return 1.35 if _hash(at + Vector3(7, 11, 3)) > 0.65 else 0.65 + 0.25 * _hash(at)
+
+func _drip_mesh() -> ArrayMesh:
+	var profile: Array[Vector2] = [
+		Vector2(0.5, 0.5), Vector2(0.45, 0.48), Vector2(0.35, 0.34),
+		Vector2(0.25, 0.22), Vector2(0.1, 0.125), Vector2(-0.1, 0.09),
+		Vector2(-0.25, 0.085), Vector2(-0.32, 0.13), Vector2(-0.38, 0.18),
+		Vector2(-0.43, 0.17), Vector2(-0.47, 0.12), Vector2(-0.49, 0.065),
+		Vector2(-0.5, 0.0),
+	]
+	var rounded: Array[Vector2] = []
+	for i in profile.size() - 1:
+		for half in 2:
+			rounded.append(profile[i].cubic_interpolate(
+				profile[i + 1], profile[maxi(0, i - 1)],
+				profile[mini(profile.size() - 1, i + 2)], half * 0.5))
+	rounded.append(profile.back())
+	var builder := SurfaceTool.new()
+	builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+	builder.set_smooth_group(0)
+	for ring in rounded.size() - 1:
+		for side in 12:
+			var radial_a := Vector3(cos(side * TAU / 12.0), 0, sin(side * TAU / 12.0))
+			var radial_b := Vector3(cos((side + 1) * TAU / 12.0), 0, sin((side + 1) * TAU / 12.0))
+			var upper := rounded[ring]
+			var lower := rounded[ring + 1]
+			var a := radial_a * upper.y + Vector3.UP * upper.x
+			var b := radial_b * upper.y + Vector3.UP * upper.x
+			var c := radial_a * lower.y + Vector3.UP * lower.x
+			var d := radial_b * lower.y + Vector3.UP * lower.x
+			for point in [a, c, b]:
+				builder.add_vertex(point)
+			if lower.y > 0.0:
+				for point in [b, c, d]:
+					builder.add_vertex(point)
+	builder.generate_normals()
+	builder.index()
+	return builder.commit()
 
 func _add_goo_droplets(points: PackedVector3Array, paint: StandardMaterial3D) -> void:
 	var drops := CPUParticles3D.new()

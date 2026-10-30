@@ -7,6 +7,17 @@ const CANYON := preload("res://scripts/canyon.gd")
 const RIDER := preload("res://scripts/wheel_rider.gd")
 const PRACTICE := preload("res://scenes/practice.tscn")
 
+class DripCourse extends CanyonCourse:
+	var drip_items: Array
+	var coat_items: Array
+
+	func _add_multimesh(node_name: String, mesh: Mesh, items: Array, shadows := true) -> Node3D:
+		if node_name == "GooDrips":
+			drip_items = items
+		elif node_name == "Goo":
+			coat_items = items
+		return super._add_multimesh(node_name, mesh, items, shadows)
+
 func _practice() -> Node3D:
 	var practice: Node3D = PRACTICE.instantiate()
 	practice.save_path = "user://canyon_test_record.json"
@@ -178,10 +189,10 @@ func test_canyon_mud_colors_track_drips_drops_and_wheel_splatter_brown() -> void
 		assert_eq(batch.multimesh.mesh.material.albedo_color, CanyonCourse.MUD_COLOR, group)
 		assert_eq(batch.multimesh.mesh.material.emission, CanyonCourse.MUD_COLOR, group + " glow is not green")
 	var drips: MultiMeshInstance3D = course.get_node("GooDrips").get_child(0)
-	assert_almost_eq(drips.multimesh.mesh.top_radius, 0.19, 0.001, "mud drips have a visibly wider root")
-	assert_almost_eq(drips.multimesh.mesh.bottom_radius, 0.075, 0.001, "mud drips keep a thicker tapered tip")
-	assert_eq(drips.multimesh.mesh.material.get_shader_parameter("surface_color"), CanyonCourse.MUD_COLOR.srgb_to_linear())
-	assert_eq(drips.multimesh.mesh.material.get_shader_parameter("glow_color"), CanyonCourse.MUD_COLOR.srgb_to_linear() * 0.3)
+	var drip_paint: ShaderMaterial = drips.multimesh.mesh.surface_get_material(0)
+	assert_eq(drip_paint.get_shader_parameter("surface_color"), CanyonCourse.MUD_COLOR)
+	assert_eq(drip_paint.get_shader_parameter("glow_color"), CanyonCourse.MUD_COLOR)
+	assert_almost_eq(float(drip_paint.get_shader_parameter("glow_energy")), 0.45, 0.001, "drip glow matches coat")
 	var drops: CPUParticles3D = course.get_node("GooDroplets")
 	assert_eq(drops.mesh.material.albedo_color, CanyonCourse.MUD_COLOR)
 	var rider: WheelRider = RIDER.new()
@@ -230,10 +241,10 @@ func test_other_tracks_keep_green_slime_and_green_wheel_splatter() -> void:
 			var batch: MultiMeshInstance3D = course.get_node(group).get_child(0)
 			assert_eq(batch.multimesh.mesh.material.albedo_color, Color(0.35, 1.0, 0.2), id + " " + group)
 		var drips: MultiMeshInstance3D = course.get_node("GooDrips").get_child(0)
-		assert_almost_eq(drips.multimesh.mesh.top_radius, 0.19, 0.001, id + " slime drips have the same wider root")
-		assert_almost_eq(drips.multimesh.mesh.bottom_radius, 0.075, 0.001, id + " slime drips keep a thicker tapered tip")
-		assert_null(drips.multimesh.mesh.material.get_shader_parameter("surface_color"), id + " keeps green shader default")
-		assert_null(drips.multimesh.mesh.material.get_shader_parameter("glow_color"), id + " keeps green glow default")
+		var drip_paint: ShaderMaterial = drips.multimesh.mesh.surface_get_material(0)
+		assert_eq(drip_paint.get_shader_parameter("surface_color"), Color(0.35, 1.0, 0.2), id + " drip color matches unchanged coat")
+		assert_eq(drip_paint.get_shader_parameter("glow_color"), Color(0.35, 1.0, 0.2), id + " drip glow matches unchanged coat")
+		assert_almost_eq(float(drip_paint.get_shader_parameter("glow_energy")), 0.45, 0.001, id + " glow strength matches coat")
 		var rider: WheelRider = RIDER.new()
 		rider.handling = HANDLING.new()
 		rider.course = course
@@ -241,6 +252,68 @@ func test_other_tracks_keep_green_slime_and_green_wheel_splatter() -> void:
 		var spray: CPUParticles3D = rider.get_node("GooSplatter")
 		assert_eq(spray.mesh.material.albedo_color, Color(0.13, 0.9, 0.06, 0.85), id)
 		assert_null(rider.get_node_or_null("MudClumps"), id + " has no extra mud particles")
+
+func test_drip_mesh_has_curved_broad_roots_narrow_necks_and_round_end_blobs() -> void:
+	var course: CanyonCourse = CANYON.new()
+	add_child_autofree(course)
+	var drips: MultiMeshInstance3D = course.get_node("GooDrips").get_child(0)
+	var arrays := drips.multimesh.mesh.surface_get_arrays(0)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var root_radius := 0.0
+	var neck_radius := 0.0
+	var bulb_radius := 0.0
+	var rounded_end_radius := 0.0
+	var tip_radius := 0.0
+	var outward := true
+	for i in vertices.size():
+		var p := vertices[i]
+		var radial := Vector3(p.x, 0, p.z)
+		if is_equal_approx(p.y, 0.5):
+			root_radius = maxf(root_radius, radial.length())
+		elif is_equal_approx(p.y, -0.25):
+			neck_radius = maxf(neck_radius, radial.length())
+		elif is_equal_approx(p.y, -0.38):
+			bulb_radius = maxf(bulb_radius, radial.length())
+		elif is_equal_approx(p.y, -0.47):
+			rounded_end_radius = maxf(rounded_end_radius, radial.length())
+		elif is_equal_approx(p.y, -0.5):
+			tip_radius = maxf(tip_radius, radial.length())
+		if radial.length() > 0.001:
+			outward = outward and radial.dot(normals[i]) > 0.0
+	assert_gte(root_radius, 0.47, "actual mesh has broad shoulders, not a narrow cylinder")
+	assert_almost_eq(neck_radius, 0.085, 0.001, "wide shoulders curve down into a narrow neck")
+	assert_gt(bulb_radius, neck_radius * 2.0, "end is a hanging blob, not a straight cone")
+	assert_gt(rounded_end_radius, 0.1, "bottom stays rounded until close to the closing pole")
+	assert_almost_eq(tip_radius, 0.0, 0.001, "rounded end closes without an open rim")
+	assert_true(outward, "generated normals face outward along the tapered surface")
+
+func test_drip_widths_vary_and_roots_are_embedded_inside_the_coat() -> void:
+	var course := DripCourse.new()
+	add_child_autofree(course)
+	var coats: Array[Transform3D] = []
+	for item in course.coat_items:
+		coats.append((item[0] as Transform3D).affine_inverse())
+	var wide := 0
+	var narrow := 0
+	var all_attached := true
+	for item in course.drip_items:
+		var transform: Transform3D = item[0]
+		if transform.basis.x.length() > 1.2:
+			wide += 1
+		else:
+			narrow += 1
+		var root := transform * Vector3(0, 0.5, 0)
+		var attached := false
+		for inverse in coats:
+			var local := inverse * root
+			if Vector2(local.x, local.z).length() < 0.5 and absf(local.y) <= 0.56:
+				attached = true
+				break
+		all_attached = all_attached and attached
+	assert_gt(wide, 0, "some drips have broad necks")
+	assert_gt(narrow, 0, "other drips stay narrower")
+	assert_true(all_attached, "regular and end drips start well inside the coat, not below its skin")
 
 func test_released_twist_settles_and_lands() -> void:
 	var practice := _practice()
