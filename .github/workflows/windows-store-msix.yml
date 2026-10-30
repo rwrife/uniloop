@@ -128,11 +128,12 @@ jobs:
             throw "publisher_display_name cannot be empty. Provide it via workflow input, repo variable (WINDOWS_STORE_PUBLISHER_DISPLAY_NAME/PUBLISHER_DISPLAY_NAME/UNILOOP_STORE_PUBLISHER_DISPLAY_NAME), or repo secret with the same names."
           }
 
-          $makeAppx = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin\*\x64\makeappx.exe" |
+          $windowsKitsRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $makeAppx = Get-ChildItem (Join-Path $windowsKitsRoot '*\x64\makeappx.exe') -ErrorAction SilentlyContinue |
             Sort-Object FullName -Descending |
             Select-Object -First 1
           if (-not $makeAppx) {
-            throw "makeappx.exe not found in Windows SDK on runner"
+            throw "makeappx.exe not found in Windows SDK on runner (searched under $windowsKitsRoot)"
           }
           "MAKEAPPX_EXE=$($makeAppx.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "Resolved makeappx: $($makeAppx.FullName)"
