@@ -71,6 +71,8 @@ func _notification(what: int) -> void:
 		_set_paused(not pause_panel.visible)
 
 func _set_paused(enabled: bool) -> void:
+	if not enabled:
+		rider.consume_jump_input()
 	_release_touches()
 	audio.set_paused(enabled)
 	var overlay := $Hud/Root.get_node_or_null("TouchOverlay")
