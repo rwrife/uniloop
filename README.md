@@ -39,7 +39,7 @@ Choose **Quick Race**, pick one of six unicycle colours, select a track, and rac
 
 - **Sunny Sprint:** a short warm-up with gentle forks and a few goo pits.
 - **Canyon Ribbon:** the classic zig-zag climb with loops, helix turns, launches, forks, and goo.
-- **Neon Night:** a faster course with boost pads and back-to-back loops.
+- **Neon Night:** a faster course with boost pads and back-to-back loops, luminous cyan/lime and pink/violet LED-textured rails, and sweeping nightclub lasers and flowing ribbons behind the track. Warm red/yellow hazard stripes stay distinct. Reduced Camera Shake freezes the background effects; High Contrast Mode dims them. The effects use a single opaque backdrop shader without extra lights or particles, including on mobile.
 - **Goo Gauntlet:** a longer, harder course with extra forks, goo, and rocket bumps.
 
 Rails are one-way: land on them from above. Hold Up at a fork to choose the upper route. Jump over obstacles and goo, or use momentum to clear them. Flip, roll, side-flip, and tabletop in the air; clean landings earn points and a speed burst, while wipeouts cost points and stop the rider.

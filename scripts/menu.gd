@@ -586,7 +586,7 @@ func _build_help() -> void:
 	panel_title.text = "HOW TO PLAY"
 	var lines: Array[String] = [
 		"RACE GOAL: Ride the rail through every numbered gate in order. The course zig-zags upward: U-turn helixes and vertical launches flip your direction, so follow the arrows.",
-		"TRACK COLORS: Blue/green = normal rail. Red/blue = loops, U-turns and launches ahead. Red/yellow = jumps, kickers, pitfalls and goo.",
+		"TRACK COLORS: Blue/green = normal rail. Red/blue = loops, U-turns and launches ahead. Neon Night uses cyan/lime and pink/violet instead. Red/yellow = jumps, kickers, pitfalls and goo.",
 		"FORKS: The rail splits at a junction into two long routes with different obstacles. Hold Up to take the upper rail, or stay low. Your call.",
 		"GOO: Dripping green slime is forward-only - no brakes, no reverse, no hops, just a slow crawl. Hit the kicker before it at full speed and hop to sail over.",
 		"ROCKET BUMPS: Watch for a short steep curl at the end of a straight. Hit it at speed and it fires you sky-high - hop just before it to skim over.",
@@ -602,7 +602,7 @@ func _build_help() -> void:
 		"  Z-Flip:             %s / %s" % [UniloopUI.prompt(&"zflip_left", current_device), UniloopUI.prompt(&"zflip_right", current_device)],
 		"  Tabletop:           %s" % UniloopUI.prompt(&"tabletop", current_device),
 		"  Pause/Menu:         %s" % UniloopUI.prompt(&"pause", current_device),
-		"ACCESSIBILITY: High-contrast mode, text scaling up to 150%, reduced motion, and full remapping are in Options.",
+		"ACCESSIBILITY: High-contrast mode, text scaling up to 150%, reduced motion, and full remapping are in Options. Reduced Camera Shake also freezes Neon Night's background lights.",
 	]
 	for line in lines:
 		var lbl := Label.new()

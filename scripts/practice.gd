@@ -145,9 +145,14 @@ func _ready() -> void:
 		$Sun.shadow_enabled = false
 		get_viewport().scaling_3d_scale = 1.0
 		($Environment as WorldEnvironment).environment.glow_enabled = false
+	var result := SaveStore.load_from_path(save_path)
+	save = result.save if result.ok else SaveStore.default_save()
+	var settings := SaveStore.get_settings(save)
 	course = COURSE.new()
 	course.name = "CanyonRibbon"
 	course.track_id = RaceSetup.track_id
+	course.reduced_motion = settings.reduced_shake
+	course.high_contrast = settings.high_contrast
 	add_child(course)
 	rider = RIDER.new()
 	rider.name = "WheelRider"
@@ -165,8 +170,6 @@ func _ready() -> void:
 	rider.place_on(spot.sec, spot.s)
 	_last_pos = rider.global_position
 	_snap_camera()
-	var result := SaveStore.load_from_path(save_path)
-	save = result.save if result.ok else SaveStore.default_save()
 	$Hud/Root.theme = UniloopUI.create_theme(SaveStore.get_settings(save))
 	pause_button.pressed.connect(_set_paused.bind(true))
 	$Hud/Root/PausePanel/Box/Resume.pressed.connect(_set_paused.bind(false))

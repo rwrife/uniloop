@@ -17,6 +17,15 @@ const KIND_COLORS := [
 	[Color(0.9, 0.08, 0.1), Color(1.0, 0.85, 0.1)],
 	[Color(0.9, 0.08, 0.1), Color(1.0, 0.85, 0.1)],
 ]
+const NEON_KIND_COLORS := [
+	[Color("#00efff"), Color("#83ff24")],
+	[Color("#ff24c8"), Color("#9855ff")],
+	[Color("#fff026"), Color("#ff9d16")],
+	[Color("#ff3154"), Color("#fff026")],
+	[Color("#ff3154"), Color("#fff026")],
+]
+const NEON_RAIL := preload("res://assets/shaders/neon_rail.gdshader")
+const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
 const BACK_Z := -10.0
 ## Forks split at a Y-junction into two long, unmarked routes that rejoin
 ## BRANCH_LENGTH later: the upper branch climbs BRANCH_CLIMB while moving
@@ -114,6 +123,8 @@ class Section:
 
 ## Which RaceSetup track to build; set before adding the course to the tree.
 var track_id := RaceSetup.DEFAULT_TRACK
+var reduced_motion := false
+var high_contrast := false
 var track: Dictionary
 var course_id := ""
 var medals: Dictionary
@@ -142,8 +153,11 @@ var _zt := 0.0
 var _land_sec := PackedInt32Array()
 var _land_k := PackedInt32Array()
 var _cells := {}
+var _neon_backdrop: ShaderMaterial
+var _neon_time := 0.0
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_PAUSABLE
 	track = RaceSetup.track(track_id)
 	course_id = track.id
 	medals = track.medals
@@ -173,6 +187,11 @@ func _ready() -> void:
 		_add_boost_pad(pad)
 	for fork in forks:
 		_add_junction_marker(fork.split)
+	set_process(course_id == "neon_night" and not reduced_motion)
+
+func _process(delta: float) -> void:
+	_neon_time += delta
+	_neon_backdrop.set_shader_parameter("motion_time", _neon_time)
 
 # --- Layout -----------------------------------------------------------------
 
@@ -652,19 +671,26 @@ func _build_rail() -> void:
 	paint.vertex_color_use_as_albedo = true
 	paint.metallic = 0.3
 	paint.roughness = 0.22
+	var rail_paint: Material = paint
+	var colors: Array = KIND_COLORS
+	if course_id == "neon_night":
+		var neon_paint := ShaderMaterial.new()
+		neon_paint.shader = NEON_RAIL
+		rail_paint = neon_paint
+		colors = NEON_KIND_COLORS
 	var tube := CylinderMesh.new()
 	tube.top_radius = RAIL_RADIUS
 	tube.bottom_radius = RAIL_RADIUS
 	tube.height = 1.0
 	tube.radial_segments = 16
 	tube.rings = 1
-	tube.material = paint
+	tube.material = rail_paint
 	var joint := SphereMesh.new()
 	joint.radius = RAIL_RADIUS
 	joint.height = RAIL_RADIUS * 2.0
 	joint.radial_segments = 12
 	joint.rings = 6
-	joint.material = paint
+	joint.material = rail_paint
 	var chevron := PrismMesh.new()
 	chevron.size = Vector3.ONE
 	chevron.material = _paint(Color(0.95, 0.97, 1.0), 0.6)
@@ -703,7 +729,7 @@ func _build_rail() -> void:
 	var drop_points := PackedVector3Array()
 	for sec: Section in sections:
 		var stripe_index := 0
-		var last_color: Color = KIND_COLORS[sec.kinds[0]][0]
+		var last_color: Color = colors[sec.kinds[0]][0]
 		joints.append([Transform3D(Basis.IDENTITY, sec.points[0] - sec.normals[0] * RAIL_RADIUS), last_color])
 		var next_arrow := 3.0
 		for k in sec.points.size() - 1:
@@ -717,7 +743,7 @@ func _build_rail() -> void:
 			var axis := Basis(n, t * (length / count), n.cross(t).normalized())
 			for j in count:
 				var u := (j + 0.5) / count
-				last_color = KIND_COLORS[kind][stripe_index % 2]
+				last_color = colors[kind][stripe_index % 2]
 				stripes.append([Transform3D(axis, a.lerp(b, u) - n * RAIL_RADIUS), last_color])
 				stripe_index += 1
 			joints.append([Transform3D(Basis.IDENTITY, b - sec.normals[k + 1] * RAIL_RADIUS), last_color])
@@ -855,12 +881,17 @@ func _build_backdrop() -> void:
 	var quad := QuadMesh.new()
 	quad.size = Vector2(bounds.size.x + 400.0, bounds.size.y + 260.0)
 	var material := ShaderMaterial.new()
-	material.shader = Shader.new()
-	material.shader.code = BACKDROP_SHADER
-	var sky: Array = track.sky
-	material.set_shader_parameter("sky_a", sky[0])
-	material.set_shader_parameter("sky_b", sky[1])
-	material.set_shader_parameter("sky_c", sky[2])
+	if course_id == "neon_night":
+		material.shader = NEON_BACKDROP
+		material.set_shader_parameter("effect_strength", 0.45 if high_contrast else 1.0)
+		_neon_backdrop = material
+	else:
+		material.shader = Shader.new()
+		material.shader.code = BACKDROP_SHADER
+		var sky: Array = track.sky
+		material.set_shader_parameter("sky_a", sky[0])
+		material.set_shader_parameter("sky_b", sky[1])
+		material.set_shader_parameter("sky_c", sky[2])
 	var backdrop := MeshInstance3D.new()
 	backdrop.name = "Backdrop"
 	backdrop.mesh = quad
