@@ -44,6 +44,7 @@ var _lean_motion := Vector3.ZERO
 var _pose: Node3D
 var _trail: CPUParticles3D
 var _goo_splatter: CPUParticles3D
+var _mud_clumps: CPUParticles3D
 var _skip_sec := -1
 var _skip_lo := 0.0
 var _skip_hi := 0.0
@@ -66,6 +67,9 @@ func _ready() -> void:
 	add_child(_trail)
 	_goo_splatter = _build_goo_splatter()
 	add_child(_goo_splatter)
+	if course != null and course.course_id == "canyon_climb" and not course.reduced_motion:
+		_mud_clumps = _build_mud_clumps()
+		add_child(_mud_clumps)
 
 func _material(color: Color, metallic: float, roughness: float) -> StandardMaterial3D:
 	var paint := StandardMaterial3D.new()
@@ -185,6 +189,13 @@ func _build_trail() -> CPUParticles3D:
 	var ramp := Gradient.new()
 	ramp.set_color(0, Color(1.0, 0.95, 0.4, 0.9))
 	ramp.set_color(1, Color(1.0, 0.3, 0.1, 0.0))
+	if course != null:
+		for i in ramp.get_point_count():
+			ramp.set_color(i, course.spark_color(ramp.get_color(i)))
+		if course.course_id == "neon_night":
+			paint.emission_enabled = true
+			paint.emission = CanyonCourse.NEON_SPARK_COLOR
+			paint.emission_energy_multiplier = 0.6
 	trail.color_ramp = ramp
 	return trail
 
@@ -211,11 +222,33 @@ func _build_goo_splatter() -> CPUParticles3D:
 	droplet.height = 0.15
 	droplet.radial_segments = 6
 	droplet.rings = 3
-	var paint := _material(Color(0.13, 0.9, 0.06, 0.85), 0.0, 0.2)
+	var color := Color(0.13, 0.9, 0.06, 0.85)
+	if course != null:
+		color = course.goo_color(color)
+	var paint := _material(color, 0.0, 0.2)
 	paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	droplet.material = paint
 	spray.mesh = droplet
 	return spray
+
+func _build_mud_clumps() -> CPUParticles3D:
+	var clumps := _build_goo_splatter()
+	clumps.name = "MudClumps"
+	clumps.amount = 12
+	clumps.lifetime = 0.5
+	clumps.gravity = Vector3(0, -14.0, 0)
+	clumps.initial_velocity_min = 1.8
+	clumps.initial_velocity_max = 3.2
+	clumps.angle_min = -180.0
+	clumps.angle_max = 180.0
+	clumps.angular_velocity_min = -140.0
+	clumps.angular_velocity_max = 140.0
+	clumps.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mesh := clumps.mesh as SphereMesh
+	mesh.radius = 0.12
+	mesh.height = 0.24
+	mesh.material = _material(CanyonCourse.MUD_COLOR.darkened(0.15), 0.0, 0.75)
+	return clumps
 
 func _active() -> bool:
 	return not cruise and recover_time <= 0.0
@@ -497,6 +530,10 @@ func _update_pose(delta: float) -> void:
 			var contact: Dictionary = course.sample(section, distance)
 			_goo_splatter.position = to_local(contact.pos)
 			_goo_splatter.direction = (basis.inverse() * (contact.n * 0.8 - contact.seg_t * signf(speed))).normalized()
+		if _mud_clumps != null:
+			_mud_clumps.emitting = _goo_splatter.emitting
+			_mud_clumps.position = _goo_splatter.position
+			_mud_clumps.direction = _goo_splatter.direction
 
 func place_on(index: int, s: float) -> void:
 	section = index
@@ -532,6 +569,8 @@ func _reset_visual_motion() -> void:
 func _clear_state() -> void:
 	if _goo_splatter != null:
 		_goo_splatter.emitting = false
+	if _mud_clumps != null:
+		_mud_clumps.emitting = false
 	_skip_sec = -1
 	_landing_squash = 0.0
 	_lean_motion = Vector3.ZERO

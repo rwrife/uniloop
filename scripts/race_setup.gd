@@ -27,7 +27,7 @@ const TRACKS: Array[Dictionary] = [
 	},
 	{
 		"id": "canyon_climb", "title": "Canyon Ribbon",
-		"blurb": "The classic zig-zag climb: loops, helixes, launches, forks and goo.",
+		"blurb": "The classic zig-zag climb: loops, helixes, launches, forks and mud.",
 		"length": 2, "speed": 2, "difficulty": 2,
 		"plan": [["RA", "uturn"], ["L", "launch"], ["RB", "launch"], ["L", "uturn"],
 			["RA", "launch"], ["L", "uturn"], ["RB", "launch"], ["L", "uturn"], ["FINAL", ""]],
