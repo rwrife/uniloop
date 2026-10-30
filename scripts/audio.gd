@@ -1,6 +1,7 @@
 extends Node
 ## Scene-owned playback: optional assets stay silent, scene exit stops everything.
 
+const CHECKPOINT_BOOM := preload("res://assets/audio/sfx/checkpoint_boom.wav")
 const MUSIC := {
 	"title": "res://assets/audio/music/title.ogg",
 	"race": "res://assets/audio/music/race_loop.ogg",
@@ -14,7 +15,7 @@ const SFX := {
 	"land_clean": "res://assets/audio/sfx/land_clean.wav",
 	"slime_land": "res://assets/audio/sfx/slime_land.wav",
 	"boost": "res://assets/audio/sfx/boost.wav",
-	"checkpoint": "res://assets/audio/sfx/checkpoint_boom.mp3",
+	"checkpoint": "res://assets/audio/sfx/checkpoint_boom.wav",
 }
 const UI_SFX := {
 	"ui_tick": "res://assets/audio/sfx/ui_tick.wav",
@@ -43,11 +44,9 @@ func _ready() -> void:
 		player.volume_db = -6.0
 		player.max_polyphony = 4
 		if cue == "checkpoint":
-			player.volume_db = -18.0
+			player.volume_db = -9.0
 			player.max_polyphony = 1
-		player.stream = _load_stream(SFX[cue])
-		if player.stream is AudioStreamMP3:
-			player.stream.loop = false
+		player.stream = CHECKPOINT_BOOM if cue == "checkpoint" else _load_stream(SFX[cue])
 		add_child(player)
 		_effects[cue] = player
 	_ui_root = get_parent()

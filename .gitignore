@@ -5,6 +5,7 @@
 .config/
 .local/
 *.import
+!assets/audio/sfx/checkpoint_boom.wav.import
 .export/
 *.tmp
 # Export output
