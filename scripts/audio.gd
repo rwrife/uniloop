@@ -21,12 +21,15 @@ const UI_SFX := {
 	"ui_tick": "res://assets/audio/sfx/ui_tick.wav",
 	"ui_confirm": "res://assets/audio/sfx/ui_confirm.wav",
 }
+const FINISH_CROWD := "res://assets/audio/sfx/finish_crowd.mp3"
 
 var current_music := ""
 var _streams: Dictionary = {}
 var _paused := false
 var _music: AudioStreamPlayer
 var _effects: Dictionary = {}
+var _crowd: AudioStreamPlayer
+var _crowd_fade: Tween
 var _ui_root: Node
 var _ui_viewport: Viewport
 
@@ -37,6 +40,13 @@ func _ready() -> void:
 	_music.name = "Music"
 	_music.bus = &"Music"
 	add_child(_music)
+	_crowd = AudioStreamPlayer.new()
+	_crowd.name = "FinishCrowd"
+	_crowd.bus = &"SFX"
+	_crowd.stream = _load_stream(FINISH_CROWD)
+	if _crowd.stream is AudioStreamMP3:
+		_crowd.stream.loop = false
+	add_child(_crowd)
 	for cue in SFX:
 		var player := AudioStreamPlayer.new()
 		player.name = cue
@@ -116,9 +126,27 @@ func play_sfx(cue: String) -> void:
 		player.play()
 
 
+func play_finish() -> void:
+	if _paused:
+		return
+	stop_all()
+	play_sfx("finish")
+	if _crowd.stream != null:
+		_crowd.volume_db = -36.0
+		_crowd.play()
+		_crowd_fade = create_tween()
+		_crowd_fade.tween_property(_crowd, "volume_db", -14.0, 0.6)
+
+
 func set_paused(enabled: bool) -> void:
 	_paused = enabled
 	_music.stream_paused = enabled
+	_crowd.stream_paused = enabled
+	if _crowd_fade != null and _crowd_fade.is_valid():
+		if enabled:
+			_crowd_fade.pause()
+		else:
+			_crowd_fade.play()
 	if enabled:
 		for player: AudioStreamPlayer in _effects.values():
 			player.stop()
@@ -127,6 +155,10 @@ func set_paused(enabled: bool) -> void:
 func stop_all() -> void:
 	current_music = ""
 	_music.stop()
+	_crowd.stop()
+	if _crowd_fade != null:
+		_crowd_fade.kill()
+		_crowd_fade = null
 	for player: AudioStreamPlayer in _effects.values():
 		player.stop()
 

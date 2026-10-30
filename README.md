@@ -70,7 +70,9 @@ Options has independent **Music Volume** and **Sound Effects Volume** sliders al
 
 Each accepted checkpoint crossing plays a short boom under the race music and launches a large multicolor confetti plume high above the gate. The boom is mixed 3 dB below other gameplay effects and follows Sound Effects and Master volume. Its uncompressed PCM audio and the confetti emitters are prepared before racing, avoiding first-use file loading, decoding, or particle setup. The burst uses 96 larger pieces with a wide upward arc, clears after 1.5 seconds, and pauses with the game; Reduced Motion uses 24 gentler pieces lasting 0.8 seconds.
 
-The rider's cosmetic lean follows travel through tricks and direction changes, easing up to 20 degrees at normal top speed and progressively increasing to 35 degrees at maximum boosted speed, with a smaller airborne lean. Losing desktop focus pauses the race; after resuming, Space controls jumping rather than reactivating the Pause button.
+Finishing a valid race stops the race music and plays the finish cue with a quiet crowd-cheering clip fading in behind it. The cheer plays once through the celebration/results, follows Sound Effects and Master volume, pauses with the game, and stops on restart or exit.
+
+The rider's cosmetic lean follows travel through tricks and direction changes, easing up to 20 degrees at normal top speed and progressively increasing to 35 degrees at maximum boosted speed, with a smaller airborne lean. Losing desktop focus pauses the race. Space or controller A on Resume only resumes: release and press again to jump, without reopening Pause or triggering an unintended air pump.
 
 ## Privacy and saves
 
