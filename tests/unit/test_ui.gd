@@ -137,13 +137,7 @@ func test_practice_control_hints_follow_active_device() -> void:
 	var practice: Node3D = load("res://scenes/practice.tscn").instantiate()
 	practice.countdown_enabled = false
 	add_child_autofree(practice)
-	var hints: PanelContainer = practice.get_node("Hud/Root/ControlHints")
-	var label: Label = hints.get_node("Text")
-	assert_true(label.text.contains("Space"))
-	practice._set_current_device("xbox")
-	assert_true(label.text.contains(UI.prompt_for_hint(&"jump", "xbox")))
-	practice._set_current_device("touch")
-	assert_false(hints.visible)
+	assert_null(practice.get_node_or_null("Hud/Root/ControlHints"))
 
 
 func test_quick_race_flow_picks_uni_then_track() -> void:
