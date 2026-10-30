@@ -56,10 +56,6 @@ func _input(event: InputEvent) -> void:
 	if detected != current_device and not (event is InputEventMouseMotion):
 		current_device = detected
 		_update_device_prompt()
-	if _is_submit_event(event):
-		if _activate_focused_control():
-			get_viewport().set_input_as_handled()
-			return
 	if remapping_action != &"" and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode != Key.KEY_ESCAPE:
 			UniloopUI.remap(save, remapping_action, event)
@@ -68,31 +64,12 @@ func _input(event: InputEvent) -> void:
 		_open("options")
 		get_viewport().set_input_as_handled()
 		return
-	if screen != "title" and (event.is_action_pressed(&"pause") or event.is_action_pressed(&"ui_cancel")):
+	if remapping_action == &"" and UniloopUI.is_menu_submit(event):
+		if UniloopUI.activate_focused_control(get_viewport()):
+			return
+	if screen != "title" and (event.is_action_pressed(&"pause") or UniloopUI.is_menu_cancel(event)):
 		_go_back()
 		get_viewport().set_input_as_handled()
-
-
-func _is_submit_event(event: InputEvent) -> bool:
-	if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"jump"):
-		return true
-	if event is InputEventJoypadButton:
-		var joy := event as InputEventJoypadButton
-		return joy.pressed and joy.button_index == JOY_BUTTON_A
-	return false
-
-
-func _activate_focused_control() -> bool:
-	var focused := get_viewport().gui_get_focus_owner()
-	if focused == null or not focused.is_visible_in_tree():
-		return false
-	if focused is BaseButton:
-		var button: BaseButton = focused
-		if button.disabled:
-			return false
-		button.pressed.emit()
-		return true
-	return false
 
 
 func _notification(what: int) -> void:
@@ -557,11 +534,12 @@ func _build_options() -> void:
 		scale_box.add_child(sbtn)
 	panel_body.add_child(scale_box)
 
-	for spec in [["Master", "audio_master"], ["Music", "audio_music"], ["SFX", "audio_sfx"]]:
+	for spec in [["Master", "audio_master"], ["Music", "audio_music"], ["Sound Effects", "audio_sfx"]]:
 		var vol_label := Label.new()
 		vol_label.text = "%s Volume: %d%%" % [spec[0], int(settings[spec[1]])]
 		panel_body.add_child(vol_label)
 		var slider := HSlider.new()
+		slider.name = spec[1]
 		slider.min_value = 0
 		slider.max_value = 100
 		slider.value = float(settings[spec[1]])

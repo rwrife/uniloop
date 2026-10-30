@@ -52,12 +52,15 @@ var audio: AUDIO
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_handle_touch(event)
+	if (pause_panel.visible or (stats_panel != null and stats_panel.visible)) and UniloopUI.is_menu_submit(event):
+		if UniloopUI.activate_focused_control(get_viewport()):
+			return
 	if event.is_action_pressed(&"pause") and (stats_panel == null or not stats_panel.visible):
 		_set_paused(not pause_panel.visible)
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"ui_cancel") and pause_panel.visible:
+	if UniloopUI.is_menu_cancel(event) and pause_panel.visible:
 		_set_paused(false)
 		get_viewport().set_input_as_handled()
 

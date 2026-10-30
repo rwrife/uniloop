@@ -19,6 +19,8 @@ DURATIONS = {
     "land_clean": 0.22,
     "slime_land": 0.43,
     "boost": 0.53,
+    "ui_tick": 0.045,
+    "ui_confirm": 0.12,
 }
 
 
@@ -39,7 +41,13 @@ def synth(name, duration, rng):
         t = i / RATE
         noise = rng.uniform(-1.0, 1.0)
         smooth += 0.085 * (noise - smooth)
-        if name == "countdown_tick":
+        if name == "ui_tick":
+            freq = 1050
+            value = math.sin(phase) * shape(t, duration, 0.008, 0.018)
+        elif name == "ui_confirm":
+            freq = 660 if t < 0.055 else 880
+            value = tone(phase, 0.1) * shape(t, duration, 0.003, 0.08)
+        elif name == "countdown_tick":
             freq = 710 - 70 * min(t / duration, 1)
             value = tone(phase, 0.16) * shape(t, duration, 0.003, 0.065)
         elif name == "countdown_go":

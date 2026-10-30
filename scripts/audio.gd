@@ -15,12 +15,18 @@ const SFX := {
 	"slime_land": "res://assets/audio/sfx/slime_land.wav",
 	"boost": "res://assets/audio/sfx/boost.wav",
 }
+const UI_SFX := {
+	"ui_tick": "res://assets/audio/sfx/ui_tick.wav",
+	"ui_confirm": "res://assets/audio/sfx/ui_confirm.wav",
+}
 
 var current_music := ""
 var _streams: Dictionary = {}
 var _paused := false
 var _music: AudioStreamPlayer
 var _effects: Dictionary = {}
+var _ui_root: Node
+var _ui_viewport: Viewport
 
 
 func _ready() -> void:
@@ -33,10 +39,47 @@ func _ready() -> void:
 		var player := AudioStreamPlayer.new()
 		player.name = cue
 		player.bus = &"SFX"
+		player.volume_db = -6.0
 		player.max_polyphony = 4
 		player.stream = _load_stream(SFX[cue])
 		add_child(player)
 		_effects[cue] = player
+	_ui_root = get_parent()
+	_ui_viewport = get_viewport()
+	for cue in UI_SFX:
+		_load_stream(UI_SFX[cue])
+	_ui_viewport.gui_focus_changed.connect(_on_ui_focus_changed)
+	get_tree().node_added.connect(_watch_ui_node)
+	for node in _ui_root.find_children("*", "BaseButton", true, false):
+		_watch_ui_node(node)
+
+
+func _watch_ui_node(node: Node) -> void:
+	if node is BaseButton and _ui_root.is_ancestor_of(node):
+		var callback := play_ui.bind("ui_confirm")
+		if not node.pressed.is_connected(callback):
+			node.pressed.connect(callback)
+
+
+func _on_ui_focus_changed(control: Control) -> void:
+	if _ui_root.is_ancestor_of(control):
+		play_ui("ui_tick")
+
+
+func play_ui(cue: String) -> void:
+	var stream := _load_stream(UI_SFX[cue])
+	if stream == null:
+		return
+	# Tiny UI cues survive scene changes and keep working on the paused menu.
+	var player := AudioStreamPlayer.new()
+	player.name = "MenuCue"
+	player.process_mode = Node.PROCESS_MODE_ALWAYS
+	player.bus = &"SFX"
+	player.volume_db = -12.0 if cue == "ui_tick" else -8.0
+	player.stream = stream
+	_ui_viewport.add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
 
 
 func _load_stream(path: String) -> AudioStream:
@@ -84,4 +127,8 @@ func stop_all() -> void:
 
 
 func _exit_tree() -> void:
+	if _ui_viewport != null and _ui_viewport.gui_focus_changed.is_connected(_on_ui_focus_changed):
+		_ui_viewport.gui_focus_changed.disconnect(_on_ui_focus_changed)
+	if get_tree().node_added.is_connected(_watch_ui_node):
+		get_tree().node_added.disconnect(_watch_ui_node)
 	stop_all()
