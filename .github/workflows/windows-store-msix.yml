@@ -220,6 +220,7 @@ jobs:
             Save-ScaledPng $icon (Join-Path $assetsDir 'StoreLogo.png') 50 50
             Save-ScaledPng $icon (Join-Path $assetsDir 'Square44x44Logo.png') 44 44
             Save-ScaledPng $icon (Join-Path $assetsDir 'Square150x150Logo.png') 150 150
+            Save-ScaledPng $icon (Join-Path $assetsDir 'Wide310x150Logo.png') 310 150
             Save-ScaledPng $icon (Join-Path $assetsDir 'Square310x310Logo.png') 310 310
 
             $splash = New-Object System.Drawing.Bitmap(620, 300)
@@ -278,7 +279,7 @@ jobs:
             '        BackgroundColor="transparent"',
             '        Square44x44Logo="Assets\Square44x44Logo.png"',
             '        Square150x150Logo="Assets\Square150x150Logo.png">',
-            '        <uap:DefaultTile Square310x310Logo="Assets\Square310x310Logo.png" />',
+            '        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\Square310x310Logo.png" />',
             '        <uap:SplashScreen Image="Assets\SplashScreen.png" />',
             '      </uap:VisualElements>',
             '      <Extensions>',
@@ -326,6 +327,7 @@ jobs:
             'build\msix\verify\AppxManifest.xml',
             'build\msix\verify\Assets\Square44x44Logo.png',
             'build\msix\verify\Assets\Square150x150Logo.png',
+            'build\msix\verify\Assets\Wide310x150Logo.png',
             'build\msix\verify\Assets\Square310x310Logo.png',
             'build\msix\verify\Assets\SplashScreen.png'
           )) {
