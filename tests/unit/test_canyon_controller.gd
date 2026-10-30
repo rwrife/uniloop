@@ -161,6 +161,44 @@ func test_goo_sprays_only_while_wheel_rolls_through_slime() -> void:
 	await get_tree().physics_frame
 	assert_false(spray.emitting, "airborne wheel cannot spray")
 
+func test_canyon_mud_colors_track_drips_drops_and_wheel_splatter_brown() -> void:
+	var course: CanyonCourse = CANYON.new()
+	add_child_autofree(course)
+	for group in ["Goo", "GooLumps"]:
+		var batch: MultiMeshInstance3D = course.get_node(group).get_child(0)
+		assert_eq(batch.multimesh.mesh.material.albedo_color, CanyonCourse.MUD_COLOR, group)
+		assert_eq(batch.multimesh.mesh.material.emission, CanyonCourse.MUD_COLOR, group + " glow is not green")
+	var drips: MultiMeshInstance3D = course.get_node("GooDrips").get_child(0)
+	assert_eq(drips.multimesh.mesh.material.get_shader_parameter("surface_color"), CanyonCourse.MUD_COLOR.srgb_to_linear())
+	assert_eq(drips.multimesh.mesh.material.get_shader_parameter("glow_color"), CanyonCourse.MUD_COLOR.srgb_to_linear() * 0.3)
+	var drops: CPUParticles3D = course.get_node("GooDroplets")
+	assert_eq(drops.mesh.material.albedo_color, CanyonCourse.MUD_COLOR)
+	var rider: WheelRider = RIDER.new()
+	rider.handling = HANDLING.new()
+	rider.course = course
+	add_child_autofree(rider)
+	var spray: CPUParticles3D = rider.get_node("GooSplatter")
+	assert_eq(spray.mesh.material.albedo_color, Color(CanyonCourse.MUD_COLOR, 0.85))
+	assert_eq(spray.mesh.material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA)
+
+func test_other_tracks_keep_green_slime_and_green_wheel_splatter() -> void:
+	for id in ["sunny_sprint", "neon_night", "goo_gauntlet"]:
+		var course: CanyonCourse = CANYON.new()
+		course.track_id = id
+		add_child_autofree(course)
+		for group in ["Goo", "GooLumps"]:
+			var batch: MultiMeshInstance3D = course.get_node(group).get_child(0)
+			assert_eq(batch.multimesh.mesh.material.albedo_color, Color(0.35, 1.0, 0.2), id + " " + group)
+		var drips: MultiMeshInstance3D = course.get_node("GooDrips").get_child(0)
+		assert_null(drips.multimesh.mesh.material.get_shader_parameter("surface_color"), id + " keeps green shader default")
+		assert_null(drips.multimesh.mesh.material.get_shader_parameter("glow_color"), id + " keeps green glow default")
+		var rider: WheelRider = RIDER.new()
+		rider.handling = HANDLING.new()
+		rider.course = course
+		add_child_autofree(rider)
+		var spray: CPUParticles3D = rider.get_node("GooSplatter")
+		assert_eq(spray.mesh.material.albedo_color, Color(0.13, 0.9, 0.06, 0.85), id)
+
 func test_released_twist_settles_and_lands() -> void:
 	var practice := _practice()
 	var report := await _drop_onto_start(practice, func(wheel: WheelRider) -> void:

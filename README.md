@@ -38,7 +38,7 @@ Captured from the actual game running on macOS with Godot 4.7.2 and the Forward+
 Choose **Quick Race**, pick one of six unicycle colours, select a track, and race after the countdown:
 
 - **Sunny Sprint:** a short warm-up with gentle forks and a few goo pits.
-- **Canyon Ribbon:** the classic zig-zag climb with loops, helix turns, launches, forks, and goo.
+- **Canyon Ribbon:** the classic zig-zag climb with loops, helix turns, launches, forks, and brown mud with matching wheel splatter. Mud keeps the same slow, forward-only handling as the green slime on other tracks.
 - **Neon Night:** a faster course with boost pads and back-to-back loops, luminous cyan/lime and pink/violet LED-textured rails, and sweeping nightclub lasers and flowing ribbons behind the track. Warm red/yellow hazard stripes stay distinct. Reduced Camera Shake freezes the background effects; High Contrast Mode dims them. The effects use a single opaque backdrop shader without extra lights or particles, including on mobile.
 - **Goo Gauntlet:** a longer, harder course with extra forks, goo, and rocket bumps.
 

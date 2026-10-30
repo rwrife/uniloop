@@ -211,7 +211,10 @@ func _build_goo_splatter() -> CPUParticles3D:
 	droplet.height = 0.15
 	droplet.radial_segments = 6
 	droplet.rings = 3
-	var paint := _material(Color(0.13, 0.9, 0.06, 0.85), 0.0, 0.2)
+	var color := Color(0.13, 0.9, 0.06, 0.85)
+	if course != null:
+		color = course.goo_color(color)
+	var paint := _material(color, 0.0, 0.2)
 	paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	droplet.material = paint
 	spray.mesh = droplet

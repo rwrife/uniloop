@@ -588,7 +588,7 @@ func _build_help() -> void:
 		"RACE GOAL: Ride the rail through every numbered gate in order. The course zig-zags upward: U-turn helixes and vertical launches flip your direction, so follow the arrows.",
 		"TRACK COLORS: Blue/green = normal rail. Red/blue = loops, U-turns and launches ahead. Neon Night uses cyan/lime and pink/violet instead. Red/yellow = jumps, kickers, pitfalls and goo.",
 		"FORKS: The rail splits at a junction into two long routes with different obstacles. Hold Up to take the upper rail, or stay low. Your call.",
-		"GOO: Dripping green slime is forward-only - no brakes, no reverse, no hops, just a slow crawl. Hit the kicker before it at full speed and hop to sail over.",
+		"MUD / GOO: Brown mud in Canyon Ribbon and green slime on other tracks are forward-only - no brakes, no reverse, no hops, just a slow crawl. Hit the kicker before it at full speed and hop to sail over.",
 		"ROCKET BUMPS: Watch for a short steep curl at the end of a straight. Hit it at speed and it fires you sky-high - hop just before it to skim over.",
 		"ONE-WAY RAILS: You can launch up through the underside of a rail and land on top of it. Fall off and you drop to the rail below - ride back up to where you were.",
 		"STUNTS (in the air): Flip = backward 360, Roll = forward 360, Twist = 180 spin, Z-Flip = seat to the ground, Tabletop = hold the stunt button. Land clean for +500 per trick and a speed boost.",

@@ -26,6 +26,7 @@ const NEON_KIND_COLORS := [
 ]
 const NEON_RAIL := preload("res://assets/shaders/neon_rail.gdshader")
 const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
+const MUD_COLOR := Color("#9a5c2e")
 const BACK_Z := -10.0
 ## Forks split at a Y-junction into two long, unmarked routes that rejoin
 ## BRANCH_LENGTH later: the upper branch climbs BRANCH_CLIMB while moving
@@ -61,6 +62,8 @@ const BUMP_HEIGHT := 1.6
 const BUMP_RUN := 3.0
 const DRIP_SHADER := """
 shader_type spatial;
+uniform vec3 surface_color = vec3(0.12, 0.9, 0.06);
+uniform vec3 glow_color = vec3(0.05, 0.45, 0.02);
 // Goo drip hanging from the rail; the top (+y) stays glued, the tip stretches.
 void vertex() {
 	float phase = COLOR.r * 6.2832;
@@ -70,8 +73,8 @@ void vertex() {
 	VERTEX.xz *= 1.0 + 0.9 * smoothstep(0.6, 1.0, down) * (1.0 - smoothstep(0.97, 1.0, down));
 }
 void fragment() {
-	ALBEDO = vec3(0.12, 0.9, 0.06);
-	EMISSION = vec3(0.05, 0.45, 0.02);
+	ALBEDO = surface_color;
+	EMISSION = glow_color;
 	ROUGHNESS = 0.05;
 	METALLIC = 0.1;
 	SPECULAR = 0.8;
@@ -664,6 +667,9 @@ func _paint(color: Color, emission := 0.0) -> StandardMaterial3D:
 		paint.emission_energy_multiplier = emission
 	return paint
 
+func goo_color(slime_color: Color) -> Color:
+	return Color(MUD_COLOR, slime_color.a) if course_id == "canyon_climb" else slime_color
+
 func _build_rail() -> void:
 	var paint := StandardMaterial3D.new()
 	if UniloopUI.uses_ios_compatibility():
@@ -694,7 +700,7 @@ func _build_rail() -> void:
 	var chevron := PrismMesh.new()
 	chevron.size = Vector3.ONE
 	chevron.material = _paint(Color(0.95, 0.97, 1.0), 0.6)
-	var goo_paint := _paint(Color(0.35, 1.0, 0.2), 0.45)
+	var goo_paint := _paint(goo_color(Color(0.35, 1.0, 0.2)), 0.45)
 	goo_paint.roughness = 0.05
 	goo_paint.metallic = 0.1
 	var goo_coat := CylinderMesh.new()
@@ -719,6 +725,9 @@ func _build_rail() -> void:
 	var drip_paint := ShaderMaterial.new()
 	drip_paint.shader = Shader.new()
 	drip_paint.shader.code = DRIP_SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode unshaded;") if UniloopUI.uses_ios_compatibility() else DRIP_SHADER
+	if course_id == "canyon_climb":
+		drip_paint.set_shader_parameter("surface_color", MUD_COLOR.srgb_to_linear())
+		drip_paint.set_shader_parameter("glow_color", MUD_COLOR.srgb_to_linear() * 0.3)
 	drip.material = drip_paint
 	var stripes: Array = []
 	var joints: Array = []
