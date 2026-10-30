@@ -18,6 +18,7 @@ var rules: RaceRules
 var save: Dictionary
 var save_path := "user://uniloop.json"
 var current_device := "keyboard"
+var _active_joy_device := -1
 var tricks_landed := 0
 var best_combo := 0
 var crashes := 0
@@ -47,9 +48,17 @@ var _pause_dim: ColorRect
 var popup: Label
 var stats_panel: PanelContainer
 var finish_fx: FinishFX
+var controls_hint: PanelContainer
+var controls_hint_text: Label
 
 func _input(event: InputEvent) -> void:
-	current_device = UniloopUI.device_for(event)
+	var detected := UniloopUI.device_for(event)
+	if not (event is InputEventMouseMotion):
+		if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+			_active_joy_device = event.device
+		elif detected != "touch":
+			_active_joy_device = -1
+		_set_current_device(detected)
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_handle_touch(event)
 	if event.is_action_pressed(&"pause") and (stats_panel == null or not stats_panel.visible):
@@ -265,6 +274,9 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	if get_tree().paused:
 		return
+	if UniloopUI.is_gamepad_device(current_device) and UniloopUI.connected_gamepad_type(_active_joy_device) == "keyboard":
+		_active_joy_device = -1
+		_set_current_device("keyboard")
 	var camera: Camera3D = $Camera
 	if rules.finished:
 		if _finish_timer >= 0.0 and not stats_panel.visible:
@@ -293,6 +305,48 @@ func _build_hud() -> void:
 	pause_button.text = "PAUSE"
 	UniloopUI.style_chunky(pause_button, 30)
 	pause_button.custom_minimum_size = Vector2.ZERO
+	_build_controls_hint()
+
+func _build_controls_hint() -> void:
+	controls_hint = PanelContainer.new()
+	controls_hint.name = "ControlHints"
+	controls_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	controls_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	controls_hint.custom_minimum_size = Vector2(440, 144)
+	var card := StyleBoxFlat.new()
+	card.bg_color = Color(0.17, 0.05, 0.31, 0.82)
+	card.border_color = UniloopUI.POP_YELLOW
+	card.set_border_width_all(4)
+	card.set_corner_radius_all(20)
+	card.content_margin_left = 14
+	card.content_margin_right = 14
+	card.content_margin_top = 10
+	card.content_margin_bottom = 10
+	controls_hint.add_theme_stylebox_override("panel", card)
+	controls_hint_text = Label.new()
+	controls_hint_text.name = "Text"
+	controls_hint_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	controls_hint_text.add_theme_font_size_override("font_size", 20)
+	controls_hint_text.add_theme_color_override("font_color", UniloopUI.WHITE)
+	controls_hint_text.add_theme_color_override("font_outline_color", UniloopUI.INK)
+	controls_hint_text.add_theme_constant_override("outline_size", 4)
+	controls_hint_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	controls_hint.add_child(controls_hint_text)
+	$Hud/Root.add_child(controls_hint)
+	_update_controls_hint()
+
+func _set_current_device(device: String) -> void:
+	if device == current_device:
+		return
+	current_device = device
+	_update_controls_hint()
+
+func _update_controls_hint() -> void:
+	if controls_hint == null:
+		return
+	controls_hint.visible = current_device != "touch"
+	if controls_hint.visible:
+		controls_hint_text.text = UniloopUI.controls_hint_text(current_device)
 
 func _hud_badge(badge_name: String, caption: String, width: float, color: Color) -> Label:
 	var plate := PanelContainer.new()
@@ -672,6 +726,11 @@ func _apply_safe_area() -> void:
 	$Hud/Root/Pause.offset_top = margins.y
 	$Hud/Root/Pause.offset_bottom = margins.y + 60
 	$Hud/Root/Pause.offset_right = -margins.z
+	if controls_hint:
+		controls_hint.offset_right = -margins.z
+		controls_hint.offset_bottom = -margins.w
+		controls_hint.offset_left = controls_hint.offset_right - controls_hint.custom_minimum_size.x
+		controls_hint.offset_top = controls_hint.offset_bottom - controls_hint.custom_minimum_size.y
 	if _touch_buttons.is_empty():
 		return
 	var size := Vector2(viewport_rect.size)

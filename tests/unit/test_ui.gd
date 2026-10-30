@@ -55,6 +55,11 @@ func test_device_prompts() -> void:
 	assert_eq(UI.prompt(&"zflip_left", "xbox"), "LB")
 	assert_eq(UI.prompt(&"jump", "touch"), "JUMP")
 	assert_eq(UI.prompt(&"pause", "nintendo"), "+")
+	assert_eq(UI.prompt_for_hint(&"jump", "xbox"), "🅰")
+	assert_eq(UI.gamepad_type_from_name("Xbox Wireless Controller"), "xbox")
+	assert_eq(UI.gamepad_type_from_name("DualSense Wireless Controller"), "playstation")
+	assert_eq(UI.gamepad_type_from_name("Nintendo Switch Pro Controller"), "nintendo")
+	assert_true(UI.controls_hint_text("keyboard").contains("Space"))
 	assert_eq(UI.device_for(InputEventKey.new()), "keyboard")
 	assert_eq(UI.device_for(InputEventScreenTouch.new()), "touch")
 
@@ -111,6 +116,30 @@ func test_menu_controls_and_pause_flow() -> void:
 	practice._set_paused(false)
 	assert_false(get_tree().paused)
 	assert_false(practice.pause_panel.visible)
+
+func test_menu_gamepad_confirm_activates_focused_button() -> void:
+	var menu: Control = load("res://scenes/menu.tscn").instantiate()
+	menu.auto_launch = false
+	add_child_autofree(menu)
+	assert_eq(menu.screen, "title")
+	assert_true(menu.buttons.quick_race.has_focus())
+	var confirm := InputEventAction.new()
+	confirm.action = &"jump"
+	confirm.pressed = true
+	menu._input(confirm)
+	assert_eq(menu.screen, "uni")
+
+func test_practice_control_hints_follow_active_device() -> void:
+	var practice: Node3D = load("res://scenes/practice.tscn").instantiate()
+	practice.countdown_enabled = false
+	add_child_autofree(practice)
+	var hints: PanelContainer = practice.get_node("Hud/Root/ControlHints")
+	var label: Label = hints.get_node("Text")
+	assert_true(label.text.contains("Space"))
+	practice._set_current_device("xbox")
+	assert_true(label.text.contains(UI.prompt_for_hint(&"jump", "xbox")))
+	practice._set_current_device("touch")
+	assert_false(hints.visible)
 
 
 func test_quick_race_flow_picks_uni_then_track() -> void:

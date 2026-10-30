@@ -7,6 +7,7 @@ const PANEL := Color("172740")
 const CYAN := Color("51e1eb")
 const WHITE := Color("f4faff")
 const YELLOW := Color("ffec57")
+const XBOX_ICON := {"A": "🅰", "B": "🅱", "X": "🆇", "Y": "🆈", "Menu": "☰"}
 const ACTIONS := [&"move_left", &"move_right", &"flip_back", &"roll_forward", &"jump",
 	&"brake", &"zflip_left", &"zflip_right", &"tabletop", &"pause"]
 
@@ -188,16 +189,53 @@ static func prompt(action: StringName, device: String) -> String:
 	return glyphs.get(device, glyphs.keyboard)[index]
 
 
+static func prompt_for_hint(action: StringName, device: String) -> String:
+	var base := prompt(action, device)
+	if device == "xbox":
+		return XBOX_ICON.get(base, base)
+	return base
+
+
+static func controls_hint_lines(device: String) -> PackedStringArray:
+	return PackedStringArray([
+		"%s / %s  steer" % [prompt_for_hint(&"move_left", device), prompt_for_hint(&"move_right", device)],
+		"%s  jump   %s  brake" % [prompt_for_hint(&"jump", device), prompt_for_hint(&"brake", device)],
+		"%s / %s  z-flip   %s  stunt" % [prompt_for_hint(&"zflip_left", device), prompt_for_hint(&"zflip_right", device), prompt_for_hint(&"tabletop", device)],
+		"%s  pause" % prompt_for_hint(&"pause", device),
+	])
+
+
+static func controls_hint_text(device: String) -> String:
+	return "\n".join(controls_hint_lines(device))
+
+
+static func is_gamepad_device(device: String) -> bool:
+	return device == "xbox" or device == "playstation" or device == "nintendo"
+
+
+static func gamepad_type_from_name(name: String) -> String:
+	var lowered := name.to_lower()
+	if "playstation" in lowered or "dualshock" in lowered or "dualsense" in lowered:
+		return "playstation"
+	if "nintendo" in lowered or "switch" in lowered:
+		return "nintendo"
+	return "xbox"
+
+
+static func connected_gamepad_type(preferred_device := -1) -> String:
+	var pads := Input.get_connected_joypads()
+	if pads.is_empty():
+		return "keyboard"
+	if preferred_device >= 0 and pads.has(preferred_device):
+		return gamepad_type_from_name(Input.get_joy_name(preferred_device))
+	return gamepad_type_from_name(Input.get_joy_name(int(pads[0])))
+
+
 static func device_for(event: InputEvent) -> String:
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		return "touch"
 	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
-		var name := Input.get_joy_name(event.device).to_lower()
-		if "playstation" in name or "dualshock" in name or "dualsense" in name:
-			return "playstation"
-		if "nintendo" in name or "switch" in name:
-			return "nintendo"
-		return "xbox"
+		return gamepad_type_from_name(Input.get_joy_name(event.device))
 	return "keyboard"
 
 

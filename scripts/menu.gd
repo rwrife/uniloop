@@ -50,6 +50,10 @@ func _input(event: InputEvent) -> void:
 	if detected != current_device and not (event is InputEventMouseMotion):
 		current_device = detected
 		_update_device_prompt()
+	if event.is_action_pressed(&"jump"):
+		if _activate_focused_control():
+			get_viewport().set_input_as_handled()
+			return
 	if remapping_action != &"" and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode != Key.KEY_ESCAPE:
 			UniloopUI.remap(save, remapping_action, event)
@@ -61,6 +65,19 @@ func _input(event: InputEvent) -> void:
 	if screen != "title" and (event.is_action_pressed(&"pause") or event.is_action_pressed(&"ui_cancel")):
 		_go_back()
 		get_viewport().set_input_as_handled()
+
+
+func _activate_focused_control() -> bool:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null or not focused.is_visible_in_tree():
+		return false
+	if focused is BaseButton:
+		var button: BaseButton = focused
+		if button.disabled:
+			return false
+		button.pressed.emit()
+		return true
+	return false
 
 
 func _notification(what: int) -> void:
