@@ -469,7 +469,11 @@ func _sparks(color: Color, amount: int) -> void:
 	mesh.size = Vector3(0.12, 0.12, 0.12)
 	var paint := StandardMaterial3D.new()
 	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	paint.albedo_color = color
+	paint.albedo_color = course.spark_color(color)
+	if course.course_id == "neon_night":
+		paint.emission_enabled = true
+		paint.emission = CanyonCourse.NEON_SPARK_COLOR
+		paint.emission_energy_multiplier = 0.6
 	mesh.material = paint
 	burst.mesh = mesh
 	add_child(burst)

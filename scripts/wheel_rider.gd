@@ -189,6 +189,13 @@ func _build_trail() -> CPUParticles3D:
 	var ramp := Gradient.new()
 	ramp.set_color(0, Color(1.0, 0.95, 0.4, 0.9))
 	ramp.set_color(1, Color(1.0, 0.3, 0.1, 0.0))
+	if course != null:
+		for i in ramp.get_point_count():
+			ramp.set_color(i, course.spark_color(ramp.get_color(i)))
+		if course.course_id == "neon_night":
+			paint.emission_enabled = true
+			paint.emission = CanyonCourse.NEON_SPARK_COLOR
+			paint.emission_energy_multiplier = 0.6
 	trail.color_ramp = ramp
 	return trail
 

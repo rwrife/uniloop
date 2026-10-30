@@ -81,3 +81,28 @@ func test_race_passes_saved_accessibility_settings_to_neon_course() -> void:
 	assert_true(race.course.high_contrast)
 	assert_false(race.course.is_processing())
 	DirAccess.remove_absolute(path)
+
+func test_unicycle_trail_and_burst_sparks_are_pink_only_in_neon_night() -> void:
+	for id in ["neon_night", "sunny_sprint", "canyon_climb", "goo_gauntlet"]:
+		RaceSetup.track_id = id
+		var race: Node3D = load("res://scenes/practice.tscn").instantiate()
+		race.save_path = "user://neon_sparks_test.json"
+		race.countdown_enabled = false
+		add_child_autofree(race)
+		var trail: CPUParticles3D = race.rider.get_node("SpeedTrail")
+		var neon: bool = id == "neon_night"
+		var first := Color(CanyonCourse.NEON_SPARK_COLOR, 0.9) if neon else Color(1.0, 0.95, 0.4, 0.9)
+		var last := Color(CanyonCourse.NEON_SPARK_COLOR, 0.0) if neon else Color(1.0, 0.3, 0.1, 0.0)
+		assert_eq(trail.color_ramp.get_color(0), first, id + " trail color")
+		assert_eq(trail.color_ramp.get_color(1), last, id + " trail still fades out")
+		assert_eq(trail.mesh.material.emission_enabled, neon, id + " glow")
+		assert_eq(trail.amount, 48, id + " particle budget unchanged")
+		race.rider.boost_time = 1.0
+		race.rider._update_pose(0.0)
+		assert_true(trail.emitting, id + " boost still activates the trail")
+		var original := Color(1.0, 0.9, 0.3)
+		race._sparks(original, 28)
+		var burst: CPUParticles3D = race.get_child(race.get_child_count() - 1)
+		assert_eq(burst.mesh.material.albedo_color, CanyonCourse.NEON_SPARK_COLOR if neon else original, id + " burst color")
+		assert_eq(burst.mesh.material.emission_enabled, neon, id + " burst glow")
+		assert_eq(burst.amount, 28, id + " burst budget unchanged")

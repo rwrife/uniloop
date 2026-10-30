@@ -27,6 +27,7 @@ const NEON_KIND_COLORS := [
 const NEON_RAIL := preload("res://assets/shaders/neon_rail.gdshader")
 const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
 const MUD_COLOR := Color("#92582c")
+const NEON_SPARK_COLOR := Color("#ff24c8")
 const BACK_Z := -10.0
 ## Forks split at a Y-junction into two long, unmarked routes that rejoin
 ## BRANCH_LENGTH later: the upper branch climbs BRANCH_CLIMB while moving
@@ -669,6 +670,9 @@ func _paint(color: Color, emission := 0.0) -> StandardMaterial3D:
 
 func goo_color(slime_color: Color) -> Color:
 	return Color(MUD_COLOR, slime_color.a) if course_id == "canyon_climb" else slime_color
+
+func spark_color(base_color: Color) -> Color:
+	return Color(NEON_SPARK_COLOR, base_color.a) if course_id == "neon_night" else base_color
 
 func _build_rail() -> void:
 	var paint := StandardMaterial3D.new()
