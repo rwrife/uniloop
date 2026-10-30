@@ -459,11 +459,14 @@ func _update_pose(delta: float) -> void:
 	var lean_frac := clampf(absf(speed) / handling.max_speed, 0.0, 1.0)
 	var travel := basis.x * speed if grounded else velocity
 	var lean_target := travel.limit_length(handling.max_speed) / handling.max_speed
+	var boost_frac := clampf(inverse_lerp(handling.max_speed, handling.max_speed * handling.boost_cap, travel.length()), 0.0, 1.0)
+	# Save the extra 15 degrees for the top of the actual boost range.
+	lean_target *= 1.0 + 0.75 * boost_frac * boost_frac
 	if not grounded:
 		lean_target *= 0.3
 	# Smooth world-space travel before projecting into the current trick pose.
 	_lean_motion = _lean_motion.lerp(lean_target, 1.0 - exp(-3.0 * delta))
-	var lean_angle := -deg_to_rad(20.0) * clampf(_lean_motion.dot(basis * _pose.basis.x), -1.0, 1.0)
+	var lean_angle := -deg_to_rad(20.0) * clampf(_lean_motion.dot(basis * _pose.basis.x), -1.75, 1.75)
 	var head_shake := 0.0
 	if recover_time > 0.0:
 		head_shake = sin(recover_time * 28.0) * deg_to_rad(24.0)

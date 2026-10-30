@@ -56,13 +56,45 @@ func test_falling_without_horizontal_motion_does_not_create_forward_lean() -> vo
 func test_lean_is_subtle_capped_and_eases_in() -> void:
 	var rider := _rider()
 	rider.grounded = true
-	rider.speed = rider.handling.max_speed * 3.0
+	rider.speed = rider.handling.max_speed
 	rider._update_pose(1.0 / 60.0)
 	assert_between(absf(_frame(rider).rotation.z), 0.001, deg_to_rad(1.1), "no instant lean on acceleration")
 	rider._update_pose(0.3)
 	assert_between(absf(_frame(rider).rotation.z), deg_to_rad(10.0), deg_to_rad(15.0), "lean eases in over several tenths of a second")
 	rider._update_pose(3.0)
-	assert_between(absf(_frame(rider).rotation.z), deg_to_rad(19.0), deg_to_rad(20.0) + 0.0001, "boosts cannot exceed 20 degrees")
+	assert_between(absf(_frame(rider).rotation.z), deg_to_rad(19.0), deg_to_rad(20.0) + 0.0001, "normal top speed stays at 20 degrees")
+
+func test_boost_range_adds_progressive_lean_with_a_sensible_cap() -> void:
+	var rider := _rider()
+	rider.grounded = true
+	var boost_range := rider.handling.max_speed * (rider.handling.boost_cap - 1.0)
+	for fraction in [0.0, 0.25, 0.5, 0.75, 1.0, 2.0]:
+		rider.speed = rider.handling.max_speed + boost_range * fraction
+		rider._update_pose(5.0)
+		var capped_fraction := minf(fraction, 1.0)
+		var expected := 20.0 + 15.0 * capped_fraction * capped_fraction
+		assert_almost_eq(rad_to_deg(-_frame(rider).rotation.z), expected, 0.01,
+			"progressive boost lean at fraction %s" % fraction)
+
+func test_boost_lean_preserves_direction_and_eases_into_extreme_speed() -> void:
+	var rider := _rider()
+	rider.grounded = true
+	rider.speed = rider.handling.max_speed
+	rider._update_pose(5.0)
+	var before := _frame(rider).rotation.z
+	rider.speed *= rider.handling.boost_cap
+	rider._update_pose(1.0 / 60.0)
+	assert_lt(absf(_frame(rider).rotation.z - before), deg_to_rad(1.0), "boost does not snap into extreme lean")
+	rider.twist = PI
+	rider._update_pose(5.0)
+	assert_gt(_lean_displacement(rider).x, 0.5, "boosted half-twist still leans with travel")
+	rider.speed = -rider.speed
+	rider._update_pose(5.0)
+	assert_lt(_lean_displacement(rider).x, -0.5, "boosted reverse still leans with travel")
+	rider.grounded = false
+	rider.velocity = Vector3.LEFT * absf(rider.speed)
+	rider._update_pose(5.0)
+	assert_almost_eq(absf(rad_to_deg(_frame(rider).rotation.z)), 10.5, 0.01, "boosted airborne lean remains reduced")
 
 func test_reversing_and_takeoff_transition_smoothly() -> void:
 	var rider := _rider()

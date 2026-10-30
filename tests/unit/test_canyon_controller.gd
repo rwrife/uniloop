@@ -209,7 +209,7 @@ func test_cartoon_rider_poses_respond_to_speed_tricks_and_landing() -> void:
 	assert_lt(frame.rotation.z, -deg_to_rad(18.0), "speed leans cartoon body forward")
 	assert_gte(frame.rotation.z, -deg_to_rad(20.0) - 0.01, "lean stays bounded")
 	assert_gt(seat.rotation.z, 0.1, "head looks forward while rolling")
-	rider.speed = -rider.handling.max_speed * 3.0
+	rider.speed = -rider.handling.max_speed
 	rider._update_pose(1.0)
 	assert_lte(frame.rotation.z, deg_to_rad(20.0) + 0.01, "reverse lean stays bounded")
 	assert_gt(frame.rotation.z, deg_to_rad(17.0), "reverse leans backward")
