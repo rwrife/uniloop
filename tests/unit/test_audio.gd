@@ -139,7 +139,7 @@ func test_music_and_sfx_settings_migrate_sanitize_and_persist() -> void:
 	var legacy := SaveStore.from_json('{"version":3,"records":{},"total_score":0,"settings":{"audio_master":27}}')
 	assert_true(legacy.ok)
 	assert_eq(legacy.save.settings.get("audio_music"), 80)
-	assert_eq(legacy.save.settings.get("audio_sfx"), 80)
+	assert_eq(legacy.save.settings.get("audio_sfx"), 50)
 	SaveStore.set_settings(legacy.save, {"audio_music": 35, "audio_sfx": 0})
 	assert_true(SaveStore.save_to_path(legacy.save, SAVE_PATH))
 	var loaded := SaveStore.load_from_path(SAVE_PATH)
@@ -148,7 +148,7 @@ func test_music_and_sfx_settings_migrate_sanitize_and_persist() -> void:
 	assert_eq(loaded.save.settings.get("audio_sfx"), 0)
 	var invalid := SaveStore.sanitize_settings({"audio_music": -1, "audio_sfx": 101})
 	assert_eq(invalid.get("audio_music"), 80)
-	assert_eq(invalid.get("audio_sfx"), 80)
+	assert_eq(invalid.get("audio_sfx"), 50)
 
 
 func test_audio_settings_configure_routing_volume_and_true_mute() -> void:

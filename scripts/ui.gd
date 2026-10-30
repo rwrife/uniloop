@@ -250,9 +250,39 @@ static func apply_audio(settings: Dictionary) -> void:
 		var bus := AudioServer.get_bus_index(name)
 		if bus < 0:
 			continue
-		var volume := float(settings.get("audio_" + name.to_lower(), 80)) / 100.0
+		var key: String = "audio_" + name.to_lower()
+		var volume := float(settings.get(key, SaveStore.DEFAULT_SETTINGS[key])) / 100.0
 		AudioServer.set_bus_volume_linear(bus, volume)
 		AudioServer.set_bus_mute(bus, volume == 0.0)
+
+
+static func is_menu_submit(event: InputEvent) -> bool:
+	if event.is_echo():
+		return false
+	if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"jump"):
+		return true
+	return event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_A
+
+
+static func is_menu_cancel(event: InputEvent) -> bool:
+	if event.is_echo():
+		return false
+	if event.is_action_pressed(&"ui_cancel"):
+		return true
+	return event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_B
+
+
+static func activate_focused_control(viewport: Viewport) -> bool:
+	var focused := viewport.gui_get_focus_owner()
+	if not focused is BaseButton or not focused.is_visible_in_tree() or focused.disabled:
+		return false
+	var button := focused as BaseButton
+	# Consume before callbacks: selecting a track can remove the current scene.
+	viewport.set_input_as_handled()
+	if button.toggle_mode:
+		button.button_pressed = not button.button_pressed
+	button.pressed.emit()
+	return true
 
 
 static func restore_bindings(save: Dictionary) -> void:

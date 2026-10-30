@@ -12,7 +12,7 @@ const DEFAULT_SETTINGS := {
 	"touch_overlay": true,
 	"audio_master": 80,
 	"audio_music": 80,
-	"audio_sfx": 80,
+	"audio_sfx": 50,
 }
 
 

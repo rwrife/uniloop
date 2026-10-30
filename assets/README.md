@@ -33,3 +33,5 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | `assets/audio/sfx/land_clean.wav` | SFX | `procedural` | Same generator; short low thump with soft noise click, 0.220 s | Active; no external audio |
 | `assets/audio/sfx/slime_land.wav` | SFX | `procedural` | Same generator; wobbly low squidgy drop over smoothed noise, 0.430 s | Active; no external audio |
 | `assets/audio/sfx/boost.wav` | SFX | `procedural` | Same generator; filtered noise sweep with rising whistle, 0.530 s | Active; no external audio |
+| `assets/audio/sfx/ui_tick.wav` | UI SFX | `procedural` | Same generator; softly enveloped 1050 Hz sine tick, 0.045 s; played 12 dB below source level | Active; navigation focus feedback |
+| `assets/audio/sfx/ui_confirm.wav` | UI SFX | `procedural` | Same generator; rising 660/880 Hz two-note beep, 0.120 s; played 8 dB below source level | Active; option selection feedback |
