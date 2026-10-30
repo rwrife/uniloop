@@ -82,7 +82,9 @@ func _set_paused(enabled: bool) -> void:
 		pause_panel.create_tween().tween_property(pause_panel, "scale", Vector2.ONE, 0.25) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	else:
-		pause_button.grab_focus()
+		var focused := get_viewport().gui_get_focus_owner()
+		if focused != null:
+			focused.release_focus()
 
 ## Arcade pause card: dimmed backdrop, wobbling PAUSED title and chunky buttons.
 func _style_pause_panel() -> void:

@@ -40,6 +40,7 @@ var bank_angle := 0.0
 var top_speed := 0.0
 var _wheel_spin := 0.0
 var _landing_squash := 0.0
+var _lean_motion := Vector3.ZERO
 var _pose: Node3D
 var _trail: CPUParticles3D
 var _goo_splatter: CPUParticles3D
@@ -456,10 +457,16 @@ func _update_pose(delta: float) -> void:
 	_pose.basis = Basis(Vector3.RIGHT, zflip + tabletop * 1.35 + fallen) * Basis(Vector3.UP, twist)
 	var frame: Node3D = _pose.get_node("RiderPrimitive")
 	var lean_frac := clampf(absf(speed) / handling.max_speed, 0.0, 1.0)
-	# ponytail: cosmetic lean capped at 60 degrees; physics stays on the rail.
-	var lean_angle := -deg_to_rad(60.0) * lean_frac * signf(speed if speed != 0.0 else 1.0)
+	var travel := basis.x * speed if grounded else velocity
+	var lean_target := travel.limit_length(handling.max_speed) / handling.max_speed
+	var boost_frac := clampf(inverse_lerp(handling.max_speed, handling.max_speed * handling.boost_cap, travel.length()), 0.0, 1.0)
+	# Save the extra 15 degrees for the top of the actual boost range.
+	lean_target *= 1.0 + 0.75 * boost_frac * boost_frac
 	if not grounded:
-		lean_angle *= 0.3
+		lean_target *= 0.3
+	# Smooth world-space travel before projecting into the current trick pose.
+	_lean_motion = _lean_motion.lerp(lean_target, 1.0 - exp(-3.0 * delta))
+	var lean_angle := -deg_to_rad(20.0) * clampf(_lean_motion.dot(basis * _pose.basis.x), -1.75, 1.75)
 	var head_shake := 0.0
 	if recover_time > 0.0:
 		head_shake = sin(recover_time * 28.0) * deg_to_rad(24.0)
@@ -527,6 +534,7 @@ func _clear_state() -> void:
 		_goo_splatter.emitting = false
 	_skip_sec = -1
 	_landing_squash = 0.0
+	_lean_motion = Vector3.ZERO
 	twist = 0.0
 	zflip = 0.0
 	tabletop = 0.0
