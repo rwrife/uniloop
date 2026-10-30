@@ -25,3 +25,11 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | `assets/ui/boot_splash.png` | 2D Splash | `derived` | `splash.jpg` resized to a 1600 px PNG for `application/boot_splash` (Cover stretch) | Accepted |
 | `assets/fonts/Bangers-Regular.ttf` | Font | `third-party` | Bangers by Vernon Adams, SIL Open Font License 1.1 (`assets/fonts/OFL.txt`); menu buttons, titles and countdown | Accepted |
 | `scripts/menu.gd` (UniIcon, StarBar) | 2D UI | `procedural` | Unicycle colour previews and difficulty stars drawn with `_draw` | Active |
+| `assets/audio/sfx/countdown_tick.wav` | SFX | `procedural` | `tools/gen_sfx.py` (stdlib-only deterministic synth, seed 2600+n, 44.1 kHz mono 16-bit, peak -3 dBFS, 0.170 s) | Active; no external audio |
+| `assets/audio/sfx/countdown_go.wav` | SFX | `procedural` | Same generator; rising two-layer blip, 0.470 s | Active; no external audio |
+| `assets/audio/sfx/finish.wav` | SFX | `procedural` | Same generator; three brass-style notes plus held major chord, 1.550 s | Active; no external audio |
+| `assets/audio/sfx/crash.wav` | SFX | `procedural` | Same generator; falling sine thud + filtered noise burst + ringing partial, 0.620 s | Active; no external audio |
+| `assets/audio/sfx/jump.wav` | SFX | `procedural` | Same generator; upward pitch sweep with vibrato tail, 0.330 s | Active; no external audio |
+| `assets/audio/sfx/land_clean.wav` | SFX | `procedural` | Same generator; short low thump with soft noise click, 0.220 s | Active; no external audio |
+| `assets/audio/sfx/slime_land.wav` | SFX | `procedural` | Same generator; wobbly low squidgy drop over smoothed noise, 0.430 s | Active; no external audio |
+| `assets/audio/sfx/boost.wav` | SFX | `procedural` | Same generator; filtered noise sweep with rising whistle, 0.530 s | Active; no external audio |
