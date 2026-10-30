@@ -39,6 +39,7 @@ var vertical_speed_before_landing := 0.0
 var bank_angle := 0.0
 var top_speed := 0.0
 var _wheel_spin := 0.0
+var _landing_squash := 0.0
 var _pose: Node3D
 var _trail: CPUParticles3D
 var _goo_splatter: CPUParticles3D
@@ -111,23 +112,48 @@ func _build_wheel() -> Node3D:
 func _build_frame() -> Node3D:
 	var frame := Node3D.new()
 	frame.name = "RiderPrimitive"
-	var yellow := _material(frame_color, 0.5, 0.3)
+	var yellow := _material(frame_color, 0.4, 0.25)
+	var steel := _material(Color(0.9, 0.92, 0.95), 0.8, 0.2)
 	var fork := BoxMesh.new()
-	fork.size = Vector3(0.08, 0.95, 0.08)
+	fork.size = Vector3(0.09, 0.95, 0.09)
 	for side in [-0.12, 0.12]:
 		frame.add_child(_part(fork, yellow, Vector3(0, 0.45, side)))
 	var crown := BoxMesh.new()
-	crown.size = Vector3(0.12, 0.08, 0.34)
+	crown.size = Vector3(0.14, 0.09, 0.36)
 	frame.add_child(_part(crown, yellow, Vector3(0, 0.94, 0)))
 	var post := CylinderMesh.new()
 	post.top_radius = 0.045
 	post.bottom_radius = 0.045
 	post.height = 0.6
-	frame.add_child(_part(post, yellow, Vector3(0, 1.25, 0)))
+	frame.add_child(_part(post, steel, Vector3(0, 1.25, 0)))
+	var shock := CylinderMesh.new()
+	shock.top_radius = 0.065
+	shock.bottom_radius = 0.065
+	shock.height = 0.2
+	frame.add_child(_part(shock, yellow, Vector3(0, 1.15, 0)))
+	var seat_head := Node3D.new()
+	seat_head.name = "SeatHead"
+	seat_head.position = Vector3(0.04, 1.6, 0)
 	var seat := CapsuleMesh.new()
-	seat.radius = 0.13
-	seat.height = 0.8
-	frame.add_child(_part(seat, _material(seat_color, 0.1, 0.5), Vector3(0.04, 1.6, 0), Vector3(0, 0, PI / 2.0 - 0.12)))
+	seat.radius = 0.14
+	seat.height = 0.82
+	seat_head.add_child(_part(seat, _material(seat_color, 0.1, 0.4), Vector3.ZERO, Vector3(0, 0, PI / 2.0 - 0.12)))
+	var sclera := _material(Color(1.0, 1.0, 1.0), 0.0, 0.2)
+	var pupil_mat := _material(Color(0.05, 0.05, 0.08), 0.0, 0.1)
+	var eye_mesh := SphereMesh.new()
+	eye_mesh.radius = 0.055
+	eye_mesh.height = 0.11
+	var pupil_mesh := SphereMesh.new()
+	pupil_mesh.radius = 0.026
+	pupil_mesh.height = 0.052
+	for eye_spec in [["EyeLeft", 0.11], ["EyeRight", -0.11]]:
+		var eye := Node3D.new()
+		eye.name = eye_spec[0]
+		eye.position = Vector3(0.32, 0.02, eye_spec[1])
+		eye.add_child(_part(eye_mesh, sclera, Vector3.ZERO))
+		eye.add_child(_part(pupil_mesh, pupil_mat, Vector3(0.035, 0.0, 0.0)))
+		seat_head.add_child(eye)
+	frame.add_child(seat_head)
 	return frame
 
 func _build_trail() -> CPUParticles3D:
@@ -362,6 +388,7 @@ func _land(hit: Dictionary) -> void:
 	var surface := _surface_pitch(smp.t)
 	bank_angle = rad_to_deg(absf(wrapf(pitch - surface, -PI, PI)))
 	vertical_speed_before_landing = velocity.dot(smp.n)
+	_landing_squash = clampf(absf(vertical_speed_before_landing) / h.hard_landing, 0.0, 1.0)
 	speed = velocity.dot(smp.t)
 	var tricks: Array[String] = []
 	var count := 0
@@ -427,15 +454,42 @@ func _update_pose(delta: float) -> void:
 	if recover_time > 0.0:
 		fallen = 1.45 * clampf(recover_time / handling.recover_time * 1.8, 0.0, 1.0)
 	_pose.basis = Basis(Vector3.RIGHT, zflip + tabletop * 1.35 + fallen) * Basis(Vector3.UP, twist)
+	var frame: Node3D = _pose.get_node("RiderPrimitive")
+	var lean_frac := clampf(absf(speed) / handling.max_speed, 0.0, 1.0)
+	# ponytail: cosmetic lean capped at 60 degrees; physics stays on the rail.
+	var lean_angle := -deg_to_rad(60.0) * lean_frac * signf(speed if speed != 0.0 else 1.0)
+	if not grounded:
+		lean_angle *= 0.3
+	var head_shake := 0.0
+	if recover_time > 0.0:
+		head_shake = sin(recover_time * 28.0) * deg_to_rad(24.0)
+	frame.rotation.z = lean_angle
+	frame.rotation.y = head_shake
+	var seat: Node3D = frame.get_node("SeatHead")
+	var head_look := 0.0
+	var head_tilt := 0.0
+	if not grounded:
+		head_look = clampf(-flip_air * 0.45, -deg_to_rad(45.0), deg_to_rad(45.0))
+		head_tilt = clampf(twist_air * 0.35, -deg_to_rad(30.0), deg_to_rad(30.0))
+	elif absf(speed) > 1.0:
+		head_look = deg_to_rad(12.0) * lean_frac
+	head_look += head_shake * 0.6
+	seat.rotation.z = head_look
+	seat.rotation.y = head_tilt
+	if delta > 0.0:
+		_landing_squash = maxf(0.0, _landing_squash - delta * 4.0)
+	var spring := _landing_squash * 0.35 * cos((1.0 - _landing_squash) * TAU * 1.25)
+	frame.scale = Vector3(1.0 + spring * 0.25, 1.0 - spring, 1.0 + spring * 0.25)
 	_wheel_spin -= speed / handling.wheel_radius * delta
 	_pose.get_node("WheelPrimitive").rotation.z = _wheel_spin
 	_trail.emitting = boost_time > 0.0 or absf(speed) > handling.max_speed * 0.92
-	var in_goo: bool = grounded and course != null and course.sample(section, distance).kind == CanyonCourse.GOO
-	_goo_splatter.emitting = in_goo and absf(speed) > 0.1 and recover_time <= 0.0
-	if _goo_splatter.emitting:
-		var contact: Dictionary = course.sample(section, distance)
-		_goo_splatter.position = to_local(contact.pos)
-		_goo_splatter.direction = (basis.inverse() * (contact.n * 0.8 - contact.seg_t * signf(speed))).normalized()
+	if _goo_splatter != null:
+		var in_goo: bool = grounded and course != null and course.sample(section, distance).kind == CanyonCourse.GOO
+		_goo_splatter.emitting = in_goo and absf(speed) > 0.1 and recover_time <= 0.0
+		if _goo_splatter.emitting:
+			var contact: Dictionary = course.sample(section, distance)
+			_goo_splatter.position = to_local(contact.pos)
+			_goo_splatter.direction = (basis.inverse() * (contact.n * 0.8 - contact.seg_t * signf(speed))).normalized()
 
 func place_on(index: int, s: float) -> void:
 	section = index
@@ -472,6 +526,7 @@ func _clear_state() -> void:
 	if _goo_splatter != null:
 		_goo_splatter.emitting = false
 	_skip_sec = -1
+	_landing_squash = 0.0
 	twist = 0.0
 	zflip = 0.0
 	tabletop = 0.0
