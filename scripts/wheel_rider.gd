@@ -480,6 +480,7 @@ func _land(hit: Dictionary) -> void:
 		"crash": reason != "",
 		"reason": reason,
 		"air_time": air_time,
+		"goo": smp.kind == CanyonCourse.GOO,
 	})
 
 func _update_pose(delta: float) -> void:
