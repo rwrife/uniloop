@@ -399,6 +399,8 @@ func _on_checkpoint(body: Node3D, index: int) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.cross_checkpoint(index):
 		return
 	_last_gate = index
+	audio.play_sfx("checkpoint")
+	_checkpoint_confetti(index)
 	_show_popup("CHECKPOINT %d/%d" % [index + 1, course.gates.size()], UniloopUI.CYAN, 0.6)
 
 func _on_finish(body: Node3D) -> void:
@@ -479,6 +481,45 @@ func _show_popup(text: String, color: Color, hold := 0.9) -> void:
 	tween.tween_property(popup, "scale", Vector2.ONE, 0.15)
 	tween.tween_interval(hold)
 	tween.tween_property(popup, "modulate:a", 0.0, 0.35)
+
+func _checkpoint_confetti(index: int) -> void:
+	var reduced: bool = SaveStore.get_settings(save).reduced_shake
+	var burst := CPUParticles3D.new()
+	burst.name = "CheckpointConfetti%d" % index
+	burst.process_mode = Node.PROCESS_MODE_PAUSABLE
+	burst.one_shot = true
+	burst.amount = 12 if reduced else 48
+	burst.lifetime = 0.65 if reduced else 1.2
+	burst.explosiveness = 1.0
+	burst.local_coords = false
+	burst.direction = Vector3.UP
+	burst.spread = 85.0
+	burst.initial_velocity_min = 1.5 if reduced else 4.0
+	burst.initial_velocity_max = 3.0 if reduced else 8.0
+	burst.gravity = Vector3(0, -12, 0)
+	burst.angle_min = -180.0
+	burst.angle_max = 180.0
+	burst.angular_velocity_min = -240.0
+	burst.angular_velocity_max = 240.0
+	var palette := Gradient.new()
+	palette.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
+	palette.set_color(0, FinishFX.COLORS[0])
+	palette.set_color(1, FinishFX.COLORS[-1])
+	for i in range(1, FinishFX.COLORS.size() - 1):
+		palette.add_point(float(i) / (FinishFX.COLORS.size() - 1), FinishFX.COLORS[i])
+	burst.color_initial_ramp = palette
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.16, 0.045, 0.09)
+	var paint := StandardMaterial3D.new()
+	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	paint.vertex_color_use_as_albedo = true
+	mesh.material = paint
+	burst.mesh = mesh
+	burst.emitting = false
+	add_child(burst)
+	burst.global_position = course.to_global(course.gates[index].pos + Vector3.UP * 1.5)
+	burst.finished.connect(burst.queue_free)
+	burst.emitting = true
 
 func _sparks(color: Color, amount: int) -> void:
 	var burst := CPUParticles3D.new()

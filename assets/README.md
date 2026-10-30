@@ -8,7 +8,7 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 2. **Review & acceptance**: Inspect mesh geometry, polycount, and UVs. Acceptable meshes are imported to `assets/models/` and tracked with Git LFS.
 3. **Manual fallback**: If an AI-generated mesh is unsuitable (unusable topology, excessive artifacts, poor deformation/collision), substitute a clean Godot primitive (`BoxMesh`, `CylinderMesh`, CSG shape, or simple placeholder), open a GitHub issue labeled `art-asset` titled "Manual 3D asset: <name>", and document the target dimensions, pivot, material needs, poly budget, collision needs, and why generation failed.
 4. Broken AI meshes are never shipped as complete art.
-5. All binary assets (`.png`, `.jpg`, `.webp`, `.glb`, `.fbx`, `.ogg`, `.wav`) are tracked via Git LFS (`.gitattributes`).
+5. All binary assets (`.png`, `.jpg`, `.webp`, `.glb`, `.fbx`, `.ogg`, `.wav`, `.mp3`) are tracked via Git LFS (`.gitattributes`).
 
 ## Registry
 
@@ -33,6 +33,8 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | `assets/audio/sfx/land_clean.wav` | SFX | `procedural` | Same generator; short low thump with soft noise click, 0.220 s | Active; no external audio |
 | `assets/audio/sfx/slime_land.wav` | SFX | `procedural` | Same generator; wobbly low squidgy drop over smoothed noise, 0.430 s | Active; no external audio |
 | `assets/audio/sfx/boost.wav` | SFX | `procedural` | Same generator; filtered noise sweep with rising whistle, 0.530 s | Active; no external audio |
+| `assets/audio/sfx/checkpoint_boom.mp3` | Checkpoint SFX | `user-provided` | Exact supplied `boom.mp3`, unchanged; source/license not independently verified | Plays once per accepted checkpoint at -18 dB; follows SFX/Master volume |
+| `scripts/practice.gd` (checkpoint confetti) | 3D Effect | `primitive` | One-shot CPUParticles3D BoxMesh rectangles using the existing finish-celebration palette, 48 particles (12 with Reduced Motion), automatic cleanup; no external art | Active; local checkpoint celebration |
 | `assets/audio/sfx/ui_tick.wav` | UI SFX | `procedural` | Same generator; softly enveloped 1050 Hz sine tick, 0.045 s; played 12 dB below source level | Active; navigation focus feedback |
 | `assets/audio/sfx/ui_confirm.wav` | UI SFX | `procedural` | Same generator; rising 660/880 Hz two-note beep, 0.120 s; played 8 dB below source level | Active; option selection feedback |
 | `assets/audio/music/title.ogg` | Audio Music | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2, prompt: carnival fairground instrumental, calliope/brass/tuba/banjo, 60s) | Accepted; title screen bgm |
