@@ -129,7 +129,9 @@ func test_goo_sprays_only_while_wheel_rolls_through_slime() -> void:
 	var course: CanyonCourse = practice.course
 	var wheel: WheelRider = practice.rider
 	var spray: CPUParticles3D = wheel.get_node("GooSplatter")
+	var clumps: CPUParticles3D = wheel.get_node("MudClumps")
 	assert_false(spray.emitting, "no slime at spawn")
+	assert_false(clumps.emitting, "no mud clumps at spawn")
 	var spot := {}
 	for i in course.sections.size():
 		var sec: CanyonCourse.Section = course.sections[i]
@@ -145,21 +147,28 @@ func test_goo_sprays_only_while_wheel_rolls_through_slime() -> void:
 	for tick in 3:
 		await get_tree().physics_frame
 	assert_true(spray.emitting, "rolling wheel throws slime")
+	assert_true(clumps.emitting, "rolling wheel also throws chunky mud")
+	assert_eq(clumps.position, spray.position, "clumps start at the tire contact")
+	assert_eq(clumps.direction, spray.direction, "clumps follow the backward splatter direction")
 	assert_true(spray.position.distance_to(wheel.to_local(course.sample(wheel.section, wheel.distance).pos)) < 0.01, "spray starts at tire contact")
 	wheel.place_on(course.start_spot.sec, course.start_spot.s)
 	wheel.speed = 2.0
 	for tick in 3:
 		await get_tree().physics_frame
 	assert_false(spray.emitting, "clean rail does not spray")
+	assert_false(clumps.emitting, "clean rail does not throw clumps")
 	wheel.place_on(spot.sec, spot.s)
 	wheel.speed = 2.0
 	for tick in 3:
 		await get_tree().physics_frame
 	assert_true(spray.emitting, "spray resumes in goo")
+	assert_true(clumps.emitting, "clumps resume in mud")
 	wheel.reset_at(Vector3(0, 4, 0), Vector3.RIGHT)
 	assert_false(spray.emitting, "reset clears spray immediately")
+	assert_false(clumps.emitting, "reset clears clumps immediately")
 	await get_tree().physics_frame
 	assert_false(spray.emitting, "airborne wheel cannot spray")
+	assert_false(clumps.emitting, "airborne wheel cannot throw clumps")
 
 func test_canyon_mud_colors_track_drips_drops_and_wheel_splatter_brown() -> void:
 	var course: CanyonCourse = CANYON.new()
@@ -169,6 +178,8 @@ func test_canyon_mud_colors_track_drips_drops_and_wheel_splatter_brown() -> void
 		assert_eq(batch.multimesh.mesh.material.albedo_color, CanyonCourse.MUD_COLOR, group)
 		assert_eq(batch.multimesh.mesh.material.emission, CanyonCourse.MUD_COLOR, group + " glow is not green")
 	var drips: MultiMeshInstance3D = course.get_node("GooDrips").get_child(0)
+	assert_almost_eq(drips.multimesh.mesh.top_radius, 0.19, 0.001, "mud drips have a visibly wider root")
+	assert_almost_eq(drips.multimesh.mesh.bottom_radius, 0.075, 0.001, "mud drips keep a thicker tapered tip")
 	assert_eq(drips.multimesh.mesh.material.get_shader_parameter("surface_color"), CanyonCourse.MUD_COLOR.srgb_to_linear())
 	assert_eq(drips.multimesh.mesh.material.get_shader_parameter("glow_color"), CanyonCourse.MUD_COLOR.srgb_to_linear() * 0.3)
 	var drops: CPUParticles3D = course.get_node("GooDroplets")
@@ -181,6 +192,35 @@ func test_canyon_mud_colors_track_drips_drops_and_wheel_splatter_brown() -> void
 	assert_eq(spray.mesh.material.albedo_color, Color(CanyonCourse.MUD_COLOR, 0.85))
 	assert_eq(spray.mesh.material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA)
 
+func test_mud_is_only_slightly_darker_and_clumps_are_small_and_bounded() -> void:
+	var brightness := CanyonCourse.MUD_COLOR.get_luminance() / Color("#9a5c2e").get_luminance()
+	assert_between(brightness, 0.9, 1.0, "mud is darker by less than ten percent")
+	var practice := _practice()
+	var clumps: CPUParticles3D = practice.rider.get_node("MudClumps")
+	assert_eq(clumps.amount, 12, "one small emitter, not particles across the course")
+	assert_eq(clumps.lifetime, 0.5)
+	assert_false(clumps.local_coords, "clumps settle in world space")
+	assert_lt(clumps.gravity.y, 0.0)
+	assert_eq(clumps.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	assert_eq(clumps.mesh.material.albedo_color, CanyonCourse.MUD_COLOR.darkened(0.15))
+	assert_eq(clumps.mesh.material.transparency, BaseMaterial3D.TRANSPARENCY_DISABLED)
+	assert_gte(clumps.mesh.material.roughness, 0.7, "clumps look earthy instead of like shiny slime")
+	practice._set_paused(true)
+	assert_false(clumps.can_process(), "clumps pause with gameplay")
+	practice._set_paused(false)
+
+func test_reduced_motion_omits_extra_mud_clumps_but_keeps_brown_splatter() -> void:
+	var course: CanyonCourse = CANYON.new()
+	course.reduced_motion = true
+	add_child_autofree(course)
+	var rider: WheelRider = RIDER.new()
+	rider.handling = HANDLING.new()
+	rider.course = course
+	add_child_autofree(rider)
+	assert_null(rider.get_node_or_null("MudClumps"))
+	var spray: CPUParticles3D = rider.get_node("GooSplatter")
+	assert_eq(spray.mesh.material.albedo_color, Color(CanyonCourse.MUD_COLOR, 0.85))
+
 func test_other_tracks_keep_green_slime_and_green_wheel_splatter() -> void:
 	for id in ["sunny_sprint", "neon_night", "goo_gauntlet"]:
 		var course: CanyonCourse = CANYON.new()
@@ -190,6 +230,8 @@ func test_other_tracks_keep_green_slime_and_green_wheel_splatter() -> void:
 			var batch: MultiMeshInstance3D = course.get_node(group).get_child(0)
 			assert_eq(batch.multimesh.mesh.material.albedo_color, Color(0.35, 1.0, 0.2), id + " " + group)
 		var drips: MultiMeshInstance3D = course.get_node("GooDrips").get_child(0)
+		assert_almost_eq(drips.multimesh.mesh.top_radius, 0.19, 0.001, id + " slime drips have the same wider root")
+		assert_almost_eq(drips.multimesh.mesh.bottom_radius, 0.075, 0.001, id + " slime drips keep a thicker tapered tip")
 		assert_null(drips.multimesh.mesh.material.get_shader_parameter("surface_color"), id + " keeps green shader default")
 		assert_null(drips.multimesh.mesh.material.get_shader_parameter("glow_color"), id + " keeps green glow default")
 		var rider: WheelRider = RIDER.new()
@@ -198,6 +240,7 @@ func test_other_tracks_keep_green_slime_and_green_wheel_splatter() -> void:
 		add_child_autofree(rider)
 		var spray: CPUParticles3D = rider.get_node("GooSplatter")
 		assert_eq(spray.mesh.material.albedo_color, Color(0.13, 0.9, 0.06, 0.85), id)
+		assert_null(rider.get_node_or_null("MudClumps"), id + " has no extra mud particles")
 
 func test_released_twist_settles_and_lands() -> void:
 	var practice := _practice()

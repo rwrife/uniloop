@@ -26,7 +26,7 @@ const NEON_KIND_COLORS := [
 ]
 const NEON_RAIL := preload("res://assets/shaders/neon_rail.gdshader")
 const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
-const MUD_COLOR := Color("#9a5c2e")
+const MUD_COLOR := Color("#92582c")
 const BACK_Z := -10.0
 ## Forks split at a Y-junction into two long, unmarked routes that rejoin
 ## BRANCH_LENGTH later: the upper branch climbs BRANCH_CLIMB while moving
@@ -717,8 +717,8 @@ func _build_rail() -> void:
 	goo_lump.rings = 5
 	goo_lump.material = goo_paint
 	var drip := CylinderMesh.new()
-	drip.top_radius = 0.13
-	drip.bottom_radius = 0.045
+	drip.top_radius = 0.19
+	drip.bottom_radius = 0.075
 	drip.height = 1.0
 	drip.radial_segments = 8
 	drip.rings = 4
