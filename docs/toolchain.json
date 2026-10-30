@@ -46,7 +46,7 @@
   "art_pipeline": {
     "image_generator": "spark-media image (OpenAI Images API gpt-image-2.5-flare)",
     "mesh_generator": "spark-media mesh (Hunyuan3D via ComfyUI on Sparky)",
-    "lfs_tracking": ["*.png", "*.jpg", "*.webp", "*.glb", "*.fbx", "*.ogg", "*.wav", "*.woff2"],
+    "lfs_tracking": ["*.png", "*.jpg", "*.webp", "*.glb", "*.fbx", "*.ogg", "*.wav", "*.mp3", "*.woff2"],
     "origin_tracker": "assets/README.md",
     "manual_fallback_issue_label": "art-asset"
   },

@@ -68,6 +68,8 @@ Prompts adapt to keyboard, Xbox, PlayStation, and Nintendo input. Keyboard gamep
 
 Options has independent **Music Volume** and **Sound Effects Volume** sliders alongside Master Volume; changes apply immediately and are saved. New saves default music to 80% and effects to 50%. Gameplay effects are mixed 6 dB quieter, including for existing saves, without changing music loudness. Menu navigation plays a soft tick and selection plays a short beep, including while paused; both follow the Sound Effects and Master settings. D-pad/left-stick navigation and A confirm work in title, Options, pause, and results menus.
 
+Finishing a valid race stops the race music and plays the finish cue with a quiet crowd-cheering clip fading in behind it. The cheer plays once through the celebration/results, follows Sound Effects and Master volume, pauses with the game, and stops on restart or exit.
+
 The rider's cosmetic lean follows travel through tricks and direction changes, easing up to 20 degrees at normal top speed and progressively increasing to 35 degrees at maximum boosted speed, with a smaller airborne lean. Losing desktop focus pauses the race. Space or controller A on Resume only resumes: release and press again to jump, without reopening Pause or triggering an unintended air pump.
 
 ## Privacy and saves

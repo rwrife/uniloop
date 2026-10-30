@@ -406,8 +406,7 @@ func _on_checkpoint(body: Node3D, index: int) -> void:
 func _on_finish(body: Node3D) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.finish():
 		return
-	audio.stop_all()
-	audio.play_sfx("finish")
+	audio.play_finish()
 	var medal := RaceRules.medal(rules.elapsed_ms, course.medals)
 	var prior: Dictionary = save.records.get(course.course_id, {})
 	_prior_best = int(prior.get("best_ms", -1))

@@ -8,7 +8,7 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 2. **Review & acceptance**: Inspect mesh geometry, polycount, and UVs. Acceptable meshes are imported to `assets/models/` and tracked with Git LFS.
 3. **Manual fallback**: If an AI-generated mesh is unsuitable (unusable topology, excessive artifacts, poor deformation/collision), substitute a clean Godot primitive (`BoxMesh`, `CylinderMesh`, CSG shape, or simple placeholder), open a GitHub issue labeled `art-asset` titled "Manual 3D asset: <name>", and document the target dimensions, pivot, material needs, poly budget, collision needs, and why generation failed.
 4. Broken AI meshes are never shipped as complete art.
-5. All binary assets (`.png`, `.jpg`, `.webp`, `.glb`, `.fbx`, `.ogg`, `.wav`) are tracked via Git LFS (`.gitattributes`).
+5. All binary assets (`.png`, `.jpg`, `.webp`, `.glb`, `.fbx`, `.ogg`, `.wav`, `.mp3`) are tracked via Git LFS (`.gitattributes`).
 
 ## Registry
 
@@ -35,5 +35,6 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | `assets/audio/sfx/boost.wav` | SFX | `procedural` | Same generator; filtered noise sweep with rising whistle, 0.530 s | Active; no external audio |
 | `assets/audio/sfx/ui_tick.wav` | UI SFX | `procedural` | Same generator; softly enveloped 1050 Hz sine tick, 0.045 s; played 12 dB below source level | Active; navigation focus feedback |
 | `assets/audio/sfx/ui_confirm.wav` | UI SFX | `procedural` | Same generator; rising 660/880 Hz two-note beep, 0.120 s; played 8 dB below source level | Active; option selection feedback |
+| `assets/audio/sfx/finish_crowd.mp3` | Finish ambience | `user-provided` | Exact supplied `dennish18-crowd-cheering-143103.mp3`, unchanged; source/license not independently verified | Plays once quietly behind the finish celebration; follows SFX/Master volume |
 | `assets/audio/music/title.ogg` | Audio Music | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2, prompt: carnival fairground instrumental, calliope/brass/tuba/banjo, 60s) | Accepted; title screen bgm |
 | `assets/audio/music/race_loop.ogg` | Audio Music | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2, prompt: fast repetitive arcade racing loop, four-on-floor/banjo/tuba, 28s seamless wrap crossfade) | Accepted; in-race loop bgm |
