@@ -112,6 +112,21 @@ godot --headless --path . --export-release "Windows Desktop" build/windows/unilo
 
 The [release workflow](.github/workflows/release.yml) builds and publishes the Windows zip on `v*` tags or manual dispatch. For manual dispatch, use `main` and supply a `release_tag`, such as `v0.2.0`. The macOS workflow uploads a build artifact; attaching the Mac zip to a release is a separate step.
 
+### Windows Store MSIX submission artifact
+
+Use the [Windows Store MSIX workflow](.github/workflows/windows-store-msix.yml) for manual Store-submission builds. It exports `build/windows` and packages an unsigned `.msix` artifact using your explicit Partner Center identity metadata.
+
+Required dispatch inputs:
+
+- `package_version` in `major.minor.build.revision` format (numeric, each segment 0-65535)
+- `store_identity_name` = Partner Center `Package/Identity/Name` (override; otherwise repository variable default)
+- `store_publisher` = Partner Center `Package/Identity/Publisher` (override; otherwise repository variable default)
+- `publisher_display_name` = Partner Center `Package/Properties/PublisherDisplayName` (override; otherwise repository variable default)
+
+Recommended repository Actions variable defaults: `WINDOWS_STORE_IDENTITY_NAME`, `WINDOWS_STORE_PUBLISHER`, `WINDOWS_STORE_PUBLISHER_DISPLAY_NAME`, and optional `WINDOWS_STORE_PACKAGE_DISPLAY_NAME`. These are non-secret manifest metadata, not secrets. `PFN`, `SID`, and Store ID are not substitutes for these manifest identity fields.
+
+Signing note: for Microsoft Store distribution, you do not need to buy or inject a signing certificate in this workflow. The Store signs submitted packages during certification/distribution. The generated MSIX is an unsigned submission artifact and is not intended as a directly installable local test package. See [docs/windows-store-msix.md](docs/windows-store-msix.md) for full setup/run/download steps.
+
 ### iOS development
 
 With Xcode, the pinned Godot editor, and its matching iOS template installed:

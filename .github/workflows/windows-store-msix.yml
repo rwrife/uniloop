@@ -1,0 +1,370 @@
+name: Windows Store MSIX
+run-name: Windows Store MSIX (${{ inputs.source_ref }} @ ${{ inputs.package_version }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Git ref to build (default: main). Use a branch, tag, or commit SHA.'
+        required: true
+        default: 'main'
+      package_version:
+        description: 'MSIX version: major.minor.build.revision (all numeric, each 0-65535).'
+        required: true
+      store_identity_name:
+        description: 'Partner Center Package/Identity Name (exact). Example: 12345InfinityBall.Uniloop'
+        required: false
+        default: ''
+      store_publisher:
+        description: 'Partner Center Publisher (exact). Example: CN=ABCD1234-....'
+        required: false
+        default: ''
+      package_display_name:
+        description: 'Package display name shown in Windows shell.'
+        required: false
+        default: ''
+      publisher_display_name:
+        description: 'Publisher display name shown in Windows shell.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_BASE_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable
+
+jobs:
+  build-store-msix:
+    name: Build Windows release + Store MSIX artifact
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      SOURCE_REF: ${{ inputs.source_ref }}
+      PACKAGE_VERSION: ${{ inputs.package_version }}
+      INPUT_STORE_IDENTITY_NAME: ${{ inputs.store_identity_name }}
+      INPUT_STORE_PUBLISHER: ${{ inputs.store_publisher }}
+      INPUT_PACKAGE_DISPLAY_NAME: ${{ inputs.package_display_name }}
+      INPUT_PUBLISHER_DISPLAY_NAME: ${{ inputs.publisher_display_name }}
+      VAR_STORE_IDENTITY_NAME: ${{ vars.WINDOWS_STORE_IDENTITY_NAME || vars.STORE_IDENTITY_NAME || vars.UNILOOP_STORE_IDENTITY_NAME }}
+      VAR_STORE_PUBLISHER: ${{ vars.WINDOWS_STORE_PUBLISHER || vars.STORE_PUBLISHER || vars.UNILOOP_STORE_PUBLISHER }}
+      VAR_PACKAGE_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PACKAGE_DISPLAY_NAME || vars.PACKAGE_DISPLAY_NAME || vars.UNILOOP_STORE_PACKAGE_DISPLAY_NAME }}
+      VAR_PUBLISHER_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME || vars.PUBLISHER_DISPLAY_NAME || vars.UNILOOP_STORE_PUBLISHER_DISPLAY_NAME }}
+    steps:
+      - name: Resolve dispatch overrides and repository variable defaults
+        shell: pwsh
+        run: |
+          function Resolve-Value([string]$inputValue, [string]$variableValue, [string]$fallback = '') {
+            if (-not [string]::IsNullOrWhiteSpace($inputValue)) { return $inputValue.Trim() }
+            if (-not [string]::IsNullOrWhiteSpace($variableValue)) { return $variableValue.Trim() }
+            return $fallback
+          }
+
+          $storeIdentity = Resolve-Value $env:INPUT_STORE_IDENTITY_NAME $env:VAR_STORE_IDENTITY_NAME
+          $storePublisher = Resolve-Value $env:INPUT_STORE_PUBLISHER $env:VAR_STORE_PUBLISHER
+          $packageDisplay = Resolve-Value $env:INPUT_PACKAGE_DISPLAY_NAME $env:VAR_PACKAGE_DISPLAY_NAME 'Uniloop'
+          $publisherDisplay = Resolve-Value $env:INPUT_PUBLISHER_DISPLAY_NAME $env:VAR_PUBLISHER_DISPLAY_NAME
+
+          "STORE_IDENTITY_NAME=$storeIdentity" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "STORE_PUBLISHER=$storePublisher" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PACKAGE_DISPLAY_NAME=$packageDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PUBLISHER_DISPLAY_NAME=$publisherDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+          lfs: true
+
+      - name: Verify toolchain pin
+        run: |
+          pin=$(python3 -c "import json;print(json.load(open('docs/toolchain.json'))['godot_version'])")
+          test "$pin" = "$GODOT_VERSION" || { echo "toolchain.json pin $pin != $GODOT_VERSION"; exit 1; }
+
+      - name: Validate Store metadata and packaging tools
+        shell: pwsh
+        run: |
+          $version = $env:PACKAGE_VERSION
+          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+            throw "package_version must be major.minor.build.revision; got '$version'"
+          }
+          $parts = $version.Split('.')
+          foreach ($part in $parts) {
+            $n = [int]$part
+            if ($n -lt 0 -or $n -gt 65535) {
+              throw "package_version segment '$part' is out of range (0-65535)"
+            }
+          }
+
+          $identity = $env:STORE_IDENTITY_NAME
+          if ([string]::IsNullOrWhiteSpace($identity)) {
+            throw "store_identity_name is required (input or repo variable WINDOWS_STORE_IDENTITY_NAME/STORE_IDENTITY_NAME/UNILOOP_STORE_IDENTITY_NAME) and must exactly match Partner Center"
+          }
+          if ($identity -notmatch '^[A-Za-z0-9][A-Za-z0-9\.\-]{1,48}[A-Za-z0-9]$' -or -not $identity.Contains('.')) {
+            throw "store_identity_name format is invalid ('$identity'). Expected Partner Center identity name such as 12345InfinityBall.Uniloop."
+          }
+
+          $publisher = $env:STORE_PUBLISHER
+          if ([string]::IsNullOrWhiteSpace($publisher)) {
+            throw "store_publisher is required (input or repo variable WINDOWS_STORE_PUBLISHER/STORE_PUBLISHER/UNILOOP_STORE_PUBLISHER) and must exactly match Partner Center"
+          }
+          if ($publisher -notmatch '^CN=.+') {
+            throw "store_publisher must start with 'CN=' and match Partner Center exactly (got '$publisher')"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:PACKAGE_DISPLAY_NAME)) {
+            throw "package_display_name cannot be empty"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:PUBLISHER_DISPLAY_NAME)) {
+            throw "publisher_display_name cannot be empty (set input or repo variable WINDOWS_STORE_PUBLISHER_DISPLAY_NAME/PUBLISHER_DISPLAY_NAME/UNILOOP_STORE_PUBLISHER_DISPLAY_NAME)"
+          }
+
+          $makeAppx = Get-ChildItem "$env:ProgramFiles(x86)\Windows Kits\10\bin\*\x64\makeappx.exe" |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $makeAppx) {
+            throw "makeappx.exe not found in Windows SDK on runner"
+          }
+          "MAKEAPPX_EXE=$($makeAppx.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "Resolved makeappx: $($makeAppx.FullName)"
+
+      - name: Download pinned editor and export templates
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/godot.zip" "$GODOT_BASE_URL/Godot_v${GODOT_VERSION}_win64.exe.zip"
+          curl -fsSL -o "$RUNNER_TEMP/templates.tpz" "$GODOT_BASE_URL/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          curl -fsSL -o "$RUNNER_TEMP/SHA512-SUMS.txt" "$GODOT_BASE_URL/SHA512-SUMS.txt"
+          (cd "$RUNNER_TEMP" && grep -F " Godot_v${GODOT_VERSION}_win64.exe.zip" SHA512-SUMS.txt | sed "s|Godot_v${GODOT_VERSION}_win64.exe.zip|godot.zip|" | sha512sum -c -)
+          (cd "$RUNNER_TEMP" && grep -F " Godot_v${GODOT_VERSION}_export_templates.tpz" SHA512-SUMS.txt | sed "s|Godot_v${GODOT_VERSION}_export_templates.tpz|templates.tpz|" | sha512sum -c -)
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/templates.tpz" -d "$RUNNER_TEMP/tpl"
+          tdir="$APPDATA/Godot/export_templates/${GODOT_VERSION/-/.}"
+          mkdir -p "$tdir"
+          cp -r "$RUNNER_TEMP/tpl/templates/." "$tdir/"
+
+      - name: Import project
+        run: |
+          exe=$(ls "$RUNNER_TEMP"/godot/Godot_v*_win64_console.exe)
+          echo "GODOT_EXE=$exe" >> "$GITHUB_ENV"
+          "$exe" --headless --path . --import --quit
+
+      - name: Run GUT (headless)
+        run: '"$GODOT_EXE" --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit'
+
+      - name: Export Windows Desktop release
+        run: |
+          mkdir -p build/windows
+          "$GODOT_EXE" --headless --path . --export-release "Windows Desktop" build/windows/uniloop.exe
+          ls -la build/windows
+          test -s build/windows/uniloop.exe
+          test -s build/windows/uniloop.pck
+
+      - name: Verify exported icon and metadata
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $exe = (Resolve-Path 'build/windows/uniloop.exe').Path
+          $ver = (Get-Item $exe).VersionInfo
+          if ($ver.ProductName -ne 'Uniloop' -or $ver.CompanyName -ne 'InfinityBall') {
+            throw "Windows metadata patch missing: product=$($ver.ProductName), company=$($ver.CompanyName)"
+          }
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exe)
+          if ($null -eq $icon) { throw 'exported EXE has no associated icon' }
+          $bmp = $icon.ToBitmap()
+          $px = $bmp.GetPixel([int]($bmp.Width / 2), [int]($bmp.Height / 2))
+          "EXE metadata: $($ver.ProductName) / $($ver.CompanyName); icon: $($bmp.Width)x$($bmp.Height), center=$px"
+          if ($px.B -gt 200 -and $px.R -lt 80 -and $px.G -lt 130) { throw 'icon still looks like Godot template default' }
+
+      - name: Stage MSIX package layout and manifest
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+
+          $layoutRoot = Join-Path $PWD 'build\msix\layout'
+          $assetsDir = Join-Path $layoutRoot 'Assets'
+          New-Item -Path $assetsDir -ItemType Directory -Force | Out-Null
+
+          Copy-Item 'build\windows\uniloop.exe' $layoutRoot -Force
+          Copy-Item 'build\windows\uniloop.pck' $layoutRoot -Force
+
+          $sourceIcon = Join-Path $PWD 'AppStore\icon.png'
+          if (-not (Test-Path $sourceIcon)) {
+            throw "App icon not found at $sourceIcon"
+          }
+          $icon = [System.Drawing.Image]::FromFile($sourceIcon)
+          try {
+            function Save-ScaledPng([System.Drawing.Image]$src, [string]$dest, [int]$w, [int]$h) {
+              $bmp = New-Object System.Drawing.Bitmap($w, $h)
+              try {
+                $g = [System.Drawing.Graphics]::FromImage($bmp)
+                try {
+                  $g.Clear([System.Drawing.Color]::Transparent)
+                  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                  $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+                  $g.DrawImage($src, 0, 0, $w, $h)
+                } finally { $g.Dispose() }
+                $bmp.Save($dest, [System.Drawing.Imaging.ImageFormat]::Png)
+              } finally { $bmp.Dispose() }
+            }
+
+            Save-ScaledPng $icon (Join-Path $assetsDir 'StoreLogo.png') 50 50
+            Save-ScaledPng $icon (Join-Path $assetsDir 'Square44x44Logo.png') 44 44
+            Save-ScaledPng $icon (Join-Path $assetsDir 'Square150x150Logo.png') 150 150
+            Save-ScaledPng $icon (Join-Path $assetsDir 'Square310x310Logo.png') 310 310
+
+            $splash = New-Object System.Drawing.Bitmap(620, 300)
+            try {
+              $g = [System.Drawing.Graphics]::FromImage($splash)
+              try {
+                $g.Clear([System.Drawing.Color]::Transparent)
+                $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+                $g.DrawImage($icon, 160, 0, 300, 300)
+              } finally { $g.Dispose() }
+              $splash.Save((Join-Path $assetsDir 'SplashScreen.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+            } finally { $splash.Dispose() }
+          } finally {
+            $icon.Dispose()
+          }
+
+          $identity = [System.Security.SecurityElement]::Escape($env:STORE_IDENTITY_NAME)
+          $publisher = [System.Security.SecurityElement]::Escape($env:STORE_PUBLISHER)
+          $packageVersion = [System.Security.SecurityElement]::Escape($env:PACKAGE_VERSION)
+          $displayName = [System.Security.SecurityElement]::Escape($env:PACKAGE_DISPLAY_NAME)
+          $publisherDisplayName = [System.Security.SecurityElement]::Escape($env:PUBLISHER_DISPLAY_NAME)
+
+          $manifestPath = Join-Path $layoutRoot 'AppxManifest.xml'
+          $manifestXml = @(
+            '<?xml version="1.0" encoding="utf-8"?>',
+            '<Package',
+            '  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"',
+            '  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"',
+            '  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"',
+            '  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"',
+            '  IgnorableNamespaces="uap desktop6 rescap">',
+            '  <Identity',
+            "    Name=""$identity""",
+            "    Publisher=""$publisher""",
+            "    Version=""$packageVersion""",
+            '    ProcessorArchitecture="x64" />',
+            '  <Properties>',
+            "    <DisplayName>$displayName</DisplayName>",
+            "    <PublisherDisplayName>$publisherDisplayName</PublisherDisplayName>",
+            '    <Logo>Assets\StoreLogo.png</Logo>',
+            '    <Description>Offline single-wheel momentum racing.</Description>',
+            '  </Properties>',
+            '  <Dependencies>',
+            '    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />',
+            '  </Dependencies>',
+            '  <Resources>',
+            '    <Resource Language="en-us" />',
+            '  </Resources>',
+            '  <Applications>',
+            '    <Application Id="Uniloop" Executable="uniloop.exe" EntryPoint="Windows.FullTrustApplication">',
+            '      <uap:VisualElements',
+            "        DisplayName=""$displayName""",
+            '        Description="Offline single-wheel momentum racing."',
+            '        BackgroundColor="transparent"',
+            '        Square44x44Logo="Assets\Square44x44Logo.png"',
+            '        Square150x150Logo="Assets\Square150x150Logo.png">',
+            '        <uap:DefaultTile Square310x310Logo="Assets\Square310x310Logo.png" />',
+            '        <uap:SplashScreen Image="Assets\SplashScreen.png" />',
+            '      </uap:VisualElements>',
+            '      <Extensions>',
+            '        <desktop6:Extension Category="windows.fullTrustProcess" Executable="uniloop.exe" />',
+            '      </Extensions>',
+            '    </Application>',
+            '  </Applications>',
+            '  <Capabilities>',
+            '    <rescap:Capability Name="runFullTrust" />',
+            '  </Capabilities>',
+            '</Package>'
+          ) -join "`n"
+          Set-Content -Path $manifestPath -Value $manifestXml -Encoding utf8NoBOM
+
+      - name: Build MSIX package
+        shell: pwsh
+        run: |
+          $packageFile = "build\msix\uniloop-windows-store-$env:PACKAGE_VERSION.msix"
+          New-Item -Path 'build\msix' -ItemType Directory -Force | Out-Null
+          & $env:MAKEAPPX_EXE pack /d 'build\msix\layout' /p $packageFile /h SHA256 /o /nv
+          if ($LASTEXITCODE -ne 0) {
+            throw "makeappx pack failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path $packageFile)) {
+            throw "MSIX package was not created: $packageFile"
+          }
+          if ((Get-Item $packageFile).Length -le 0) {
+            throw "MSIX package is empty: $packageFile"
+          }
+
+      - name: Validate packaged MSIX contents
+        shell: pwsh
+        run: |
+          $packageFile = "build\msix\uniloop-windows-store-$env:PACKAGE_VERSION.msix"
+          Remove-Item 'build\msix\verify' -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -Path 'build\msix\verify' -ItemType Directory -Force | Out-Null
+          & $env:MAKEAPPX_EXE unpack /p $packageFile /d 'build\msix\verify' /o /nv
+          if ($LASTEXITCODE -ne 0) {
+            throw "makeappx unpack failed with exit code $LASTEXITCODE"
+          }
+
+          foreach ($required in @(
+            'build\msix\verify\uniloop.exe',
+            'build\msix\verify\uniloop.pck',
+            'build\msix\verify\AppxManifest.xml',
+            'build\msix\verify\Assets\Square44x44Logo.png',
+            'build\msix\verify\Assets\Square150x150Logo.png',
+            'build\msix\verify\Assets\Square310x310Logo.png',
+            'build\msix\verify\Assets\SplashScreen.png'
+          )) {
+            if (-not (Test-Path $required)) {
+              throw "MSIX missing required file: $required"
+            }
+          }
+
+          [xml]$manifest = Get-Content 'build\msix\verify\AppxManifest.xml'
+          $ns = New-Object System.Xml.XmlNamespaceManager($manifest.NameTable)
+          $ns.AddNamespace('appx', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+          $identity = $manifest.SelectSingleNode('/appx:Package/appx:Identity', $ns)
+          if ($identity.Name -ne $env:STORE_IDENTITY_NAME) {
+            throw "Manifest identity name mismatch. expected '$env:STORE_IDENTITY_NAME', got '$($identity.Name)'"
+          }
+          if ($identity.Publisher -ne $env:STORE_PUBLISHER) {
+            throw "Manifest publisher mismatch. expected '$env:STORE_PUBLISHER', got '$($identity.Publisher)'"
+          }
+          if ($identity.Version -ne $env:PACKAGE_VERSION) {
+            throw "Manifest version mismatch. expected '$env:PACKAGE_VERSION', got '$($identity.Version)'"
+          }
+
+          $signaturePath = 'build\msix\verify\AppxSignature.p7x'
+          if (Test-Path $signaturePath) {
+            throw "Expected unsigned submission artifact, but signature file exists at $signaturePath"
+          }
+
+          @(
+            'This artifact is an unsigned MSIX intended for Microsoft Store ingestion.',
+            'It is not directly installable on Windows test machines.',
+            'Microsoft Store signs the package during certification/distribution.'
+          ) -join "`n" | Set-Content -Path 'build\msix\STORE-SUBMISSION-NOTES.txt' -Encoding utf8NoBOM
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uniloop-windows-release-files-${{ inputs.package_version }}
+          path: build/windows/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uniloop-windows-store-msix-${{ inputs.package_version }}
+          path: |
+            build/msix/*.msix
+            build/msix/layout/AppxManifest.xml
+            build/msix/layout/Assets/
+            build/msix/STORE-SUBMISSION-NOTES.txt
+          if-no-files-found: error
