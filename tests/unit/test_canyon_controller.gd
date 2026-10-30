@@ -195,6 +195,38 @@ func test_rider_instantiation_and_nodes() -> void:
 	assert_not_null(rider.get_node_or_null("Pose/RiderPrimitive"))
 	assert_eq(rider.speed, 0.0)
 
+func test_cartoon_rider_poses_respond_to_speed_tricks_and_landing() -> void:
+	var rider: WheelRider = RIDER.new()
+	rider.handling = HANDLING.new()
+	add_child_autofree(rider)
+	var frame: Node3D = rider.get_node("Pose/RiderPrimitive")
+	var seat: Node3D = frame.get_node("SeatHead")
+	assert_not_null(seat.get_node_or_null("EyeLeft"))
+	assert_not_null(seat.get_node_or_null("EyeRight"))
+	rider.grounded = true
+	rider.speed = rider.handling.max_speed
+	rider._update_pose(1.0)
+	assert_lt(frame.rotation.z, -deg_to_rad(40.0), "speed leans cartoon body forward")
+	assert_gte(frame.rotation.z, -deg_to_rad(60.0) - 0.01, "lean stays bounded")
+	assert_gt(seat.rotation.z, 0.1, "head looks forward while rolling")
+	rider.speed = -rider.handling.max_speed * 3.0
+	rider._update_pose(0.016)
+	assert_lte(frame.rotation.z, deg_to_rad(60.0) + 0.01, "reverse lean stays bounded")
+	assert_gt(frame.rotation.z, deg_to_rad(40.0), "reverse leans backward")
+	rider.grounded = false
+	rider.speed = rider.handling.max_speed
+	rider.flip_air = TAU
+	rider._update_pose(1.0)
+	assert_lt(seat.rotation.z, -0.1, "head follows tricks")
+	rider.grounded = true
+	rider.speed = 0.0
+	rider.recover_time = 0.0
+	rider._landing_squash = 1.0
+	rider._update_pose(0.016)
+	assert_lt(frame.scale.y, 0.9, "heavy landing compresses spring")
+	rider.reset_at(Vector3.ZERO, Vector3.RIGHT)
+	assert_almost_eq(frame.scale.y, 1.0, 0.001, "reset clears spring motion")
+
 func test_rider_reset_behavior() -> void:
 	var rider: WheelRider = RIDER.new()
 	rider.handling = HANDLING.new()
