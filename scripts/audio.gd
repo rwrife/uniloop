@@ -4,7 +4,7 @@ extends Node
 const CHECKPOINT_BOOM := preload("res://assets/audio/sfx/checkpoint_boom.wav")
 const MUSIC := {
 	"title": "res://assets/audio/music/title.ogg",
-	"race": "res://assets/audio/music/race_loop.ogg",
+	"race": "res://assets/audio/music/race_theme.ogg",
 }
 const SFX := {
 	"countdown_tick": "res://assets/audio/sfx/countdown_tick.wav",
@@ -110,9 +110,9 @@ func play_music(cue: String) -> void:
 	_music.stop()
 	var stream := _load_stream(MUSIC[cue])
 	if stream is AudioStreamOggVorbis:
-		stream.loop = true
+		stream.loop = cue != "race"
 	elif stream is AudioStreamWAV:
-		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		stream.loop_mode = AudioStreamWAV.LOOP_DISABLED if cue == "race" else AudioStreamWAV.LOOP_FORWARD
 	_music.stream = stream
 	if stream != null:
 		_music.play()

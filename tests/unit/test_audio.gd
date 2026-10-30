@@ -4,7 +4,7 @@ const AUDIO_SCRIPT := "res://scripts/audio.gd"
 const SAVE_PATH := "user://test_audio_settings.json"
 const MUSIC := {
 	"title": "res://assets/audio/music/title.ogg",
-	"race": "res://assets/audio/music/race_loop.ogg",
+	"race": "res://assets/audio/music/race_theme.ogg",
 }
 const SFX := {
 	"countdown_tick": "res://assets/audio/sfx/countdown_tick.wav",
@@ -110,15 +110,31 @@ func test_asset_contract_missing_files_are_silent_and_players_use_buses() -> voi
 	audio.stop_all()
 
 
+func test_race_theme_is_five_minutes_and_plays_once() -> void:
+	var track := load(MUSIC["race"]) as AudioStreamOggVorbis
+	assert_not_null(track)
+	if track == null:
+		return
+	assert_almost_eq(track.get_length(), 300.0, 0.05)
+	var audio := _standalone_audio()
+	audio.play_music("race")
+	assert_false(track.loop, "five-minute race theme plays through, without restarting intro")
+	assert_true(audio.get_node("Music").playing)
+
+
 func test_music_loops_effects_overlap_and_pause_discards_effects() -> void:
 	var audio := _standalone_audio()
 	if audio == null:
 		return
 	_seed(audio)
+	audio.play_music("title")
+	var title_music: AudioStreamPlayer = audio.get_node("Music")
+	assert_true(title_music.playing)
+	assert_eq(title_music.stream.loop_mode, AudioStreamWAV.LOOP_FORWARD, "title loops")
 	audio.play_music("race")
 	var music: AudioStreamPlayer = audio.get_node("Music")
 	assert_true(music.playing)
-	assert_eq(music.stream.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+	assert_eq(music.stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "race theme plays through once")
 	audio.play_sfx("land_clean")
 	audio.play_sfx("boost")
 	assert_true(audio.get_node("land_clean").playing)
