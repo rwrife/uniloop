@@ -11,6 +11,8 @@ const DEFAULT_SETTINGS := {
 	"reduced_shake": false,
 	"touch_overlay": true,
 	"audio_master": 80,
+	"audio_music": 80,
+	"audio_sfx": 80,
 }
 
 
@@ -35,9 +37,10 @@ static func sanitize_settings(raw: Variant) -> Dictionary:
 	for flag in ["high_contrast", "reduced_shake", "touch_overlay"]:
 		if typeof(data.get(flag)) == TYPE_BOOL:
 			out[flag] = data[flag]
-	var volume := _as_int(data.get("audio_master", -1))
-	if volume >= 0 and volume <= 100:
-		out.audio_master = volume
+	for key in ["audio_master", "audio_music", "audio_sfx"]:
+		var volume := _as_int(data.get(key, -1))
+		if volume >= 0 and volume <= 100:
+			out[key] = volume
 	return out
 
 

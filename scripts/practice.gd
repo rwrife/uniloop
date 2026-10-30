@@ -6,6 +6,7 @@ const MENU_SCENE := "res://scenes/menu.tscn"
 const HANDLING := preload("res://scripts/handling.gd")
 const COURSE := preload("res://scripts/canyon.gd")
 const RIDER := preload("res://scripts/wheel_rider.gd")
+const AUDIO := preload("res://scripts/audio.gd")
 const ACTIONS: Array[StringName] = [&"move_left", &"move_right", &"flip_back", &"roll_forward",
 	&"jump", &"brake", &"zflip_left", &"zflip_right", &"tabletop"]
 const TRICK_SCORE := 500
@@ -47,6 +48,7 @@ var _pause_dim: ColorRect
 var popup: Label
 var stats_panel: PanelContainer
 var finish_fx: FinishFX
+var audio: AUDIO
 
 func _input(event: InputEvent) -> void:
 	current_device = UniloopUI.device_for(event)
@@ -69,6 +71,7 @@ func _notification(what: int) -> void:
 
 func _set_paused(enabled: bool) -> void:
 	_release_touches()
+	audio.set_paused(enabled)
 	var overlay := $Hud/Root.get_node_or_null("TouchOverlay")
 	if overlay:
 		overlay.visible = not enabled
@@ -130,11 +133,13 @@ func _style_pause_panel() -> void:
 		b.focus_neighbor_bottom = b.get_path_to(buttons[(i + 1) % buttons.size()])
 func _exit_to_menu() -> void:
 	_release_touches()
+	audio.stop_all()
 	get_tree().paused = false
 	get_tree().change_scene_to_file(MENU_SCENE)
 
 func _restart_course() -> void:
 	_release_touches()
+	audio.stop_all()
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
@@ -148,6 +153,10 @@ func _ready() -> void:
 	var result := SaveStore.load_from_path(save_path)
 	save = result.save if result.ok else SaveStore.default_save()
 	var settings := SaveStore.get_settings(save)
+	UniloopUI.apply_audio(settings)
+	audio = AUDIO.new()
+	audio.name = "Audio"
+	add_child(audio)
 	course = COURSE.new()
 	course.name = "CanyonRibbon"
 	course.track_id = RaceSetup.track_id
@@ -165,6 +174,7 @@ func _ready() -> void:
 	($Environment as WorldEnvironment).environment.background_color = course.track.sky[0]
 	rider.landed.connect(_on_landed)
 	rider.boosted.connect(_on_boosted)
+	rider.took_off.connect(_on_took_off)
 	rules = RaceRules.new(course.gates.size())
 	var spot := course.spawn(-1)
 	rider.place_on(spot.sec, spot.s)
@@ -188,6 +198,8 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_apply_safe_area)
 	if countdown_enabled:
 		_start_countdown()
+	else:
+		audio.play_music("race")
 
 func _start_countdown() -> void:
 	racing = false
@@ -215,6 +227,7 @@ func _start_countdown() -> void:
 			tween.tween_interval(0.9)
 
 func _countdown_beat(text: String, color: Color, go: bool) -> void:
+	audio.play_sfx("countdown_go" if go else "countdown_tick")
 	countdown_label.text = text
 	countdown_label.add_theme_color_override("font_color", color)
 	countdown_label.add_theme_font_size_override("font_size", 300 if go else 240)
@@ -230,6 +243,7 @@ func _countdown_beat(text: String, color: Color, go: bool) -> void:
 	_shake(0.35 if go else 0.15)
 	_sparks(color, 60 if go else 20)
 	if go:
+		audio.play_music("race")
 		racing = true
 		rider.process_mode = Node.PROCESS_MODE_PAUSABLE
 		pop.chain().tween_interval(0.35)
@@ -347,6 +361,7 @@ func _on_landed(report: Dictionary) -> void:
 	if rules.finished:
 		return
 	if report.crash:
+		audio.play_sfx("crash")
 		crashes += 1
 		rules.score = maxi(0, rules.score - CRASH_PENALTY)
 		rules.streak = 0
@@ -354,10 +369,12 @@ func _on_landed(report: Dictionary) -> void:
 		_shake(0.3)
 		_sparks(Color(1.0, 0.45, 0.2), 40)
 		return
+	audio.play_sfx("slime_land" if report.get("goo", false) else "land_clean")
 	# Plain hops don't feed the landing streak, so hop-spamming can't farm points.
 	var quality := rules.land(report.impact, report.tilt) if report.air_time >= 0.9 or report.count > 0 else "hop"
 	var tricks: Array = report.tricks
 	if report.count > 0:
+		audio.play_sfx("boost")
 		var points: int = TRICK_SCORE * report.count * tricks.size()
 		rules.score += points
 		tricks_landed += report.count
@@ -370,7 +387,12 @@ func _on_landed(report: Dictionary) -> void:
 
 func _on_boosted() -> void:
 	if not rules.finished:
+		audio.play_sfx("boost")
 		_show_popup("BOOST!", Color(1.0, 0.6, 0.15), 0.6)
+
+func _on_took_off() -> void:
+	if not rules.finished:
+		audio.play_sfx("jump")
 
 func _on_checkpoint(body: Node3D, index: int) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.cross_checkpoint(index):
@@ -381,6 +403,8 @@ func _on_checkpoint(body: Node3D, index: int) -> void:
 func _on_finish(body: Node3D) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.finish():
 		return
+	audio.stop_all()
+	audio.play_sfx("finish")
 	var medal := RaceRules.medal(rules.elapsed_ms, course.medals)
 	var prior: Dictionary = save.records.get(course.course_id, {})
 	_prior_best = int(prior.get("best_ms", -1))
@@ -402,6 +426,7 @@ func _on_finish(body: Node3D) -> void:
 	popup.visible = false # Clear prior checkpoint/trick popup during finish rollout.
 
 func _reset() -> void:
+	audio.play_sfx("crash")
 	var spot := course.spawn(_last_gate)
 	rider.place_on(spot.sec, spot.s)
 	_last_pos = rider.global_position

@@ -5,13 +5,14 @@ extends Control
 ## Every screen is keyboard, gamepad and touch navigable.
 
 const PRACTICE_SCENE := "res://scenes/practice.tscn"
-const SAVE_PATH := "user://uniloop.json"
 const SPLASH := preload("res://assets/ui/boot_splash.png")
+const AUDIO := preload("res://scripts/audio.gd")
 const DESKTOP_OS := ["Windows", "Linux", "FreeBSD", "NetBSD", "OpenBSD", "macOS"]
 ## Where Back goes from each sub-screen.
 const PARENT := {"uni": "title", "track": "uni", "league": "title", "options": "title", "help": "options"}
 
 var save: Dictionary
+var save_path := "user://uniloop.json"
 var remapping_action := &""
 var current_device := "keyboard"
 var screen := "title"
@@ -28,13 +29,18 @@ var panel_title: Label
 var panel_body: VBoxContainer
 var back_btn: Button
 var device_label: Label
+var audio: AUDIO
 
 
 func _ready() -> void:
-	var loaded := SaveStore.load_from_path(SAVE_PATH)
+	var loaded := SaveStore.load_from_path(save_path)
 	save = loaded.save if loaded.ok else SaveStore.default_save()
 	UniloopUI.restore_bindings(save)
 	UniloopUI.apply_audio(SaveStore.get_settings(save))
+	audio = AUDIO.new()
+	audio.name = "Audio"
+	add_child(audio)
+	audio.play_music("title")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_refresh_theme()
 	_build()
@@ -53,7 +59,7 @@ func _input(event: InputEvent) -> void:
 	if remapping_action != &"" and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode != Key.KEY_ESCAPE:
 			UniloopUI.remap(save, remapping_action, event)
-			SaveStore.save_to_path(save, SAVE_PATH)
+			SaveStore.save_to_path(save, save_path)
 		remapping_action = &""
 		_open("options")
 		get_viewport().set_input_as_handled()
@@ -64,6 +70,11 @@ func _input(event: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
+	if is_node_ready():
+		if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED]:
+			audio.set_paused(true)
+		elif what in [NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_APPLICATION_RESUMED]:
+			audio.set_paused(false)
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if screen != "title":
 			_go_back()
@@ -519,18 +530,19 @@ func _build_options() -> void:
 		scale_box.add_child(sbtn)
 	panel_body.add_child(scale_box)
 
-	var vol_label := Label.new()
-	vol_label.text = "Master Volume: %d%%" % int(settings.audio_master)
-	panel_body.add_child(vol_label)
-	var slider := HSlider.new()
-	slider.min_value = 0
-	slider.max_value = 100
-	slider.value = float(settings.audio_master)
-	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.custom_minimum_size = Vector2(120, 32)
-	slider.focus_mode = Control.FOCUS_ALL
-	slider.value_changed.connect(_on_volume_changed.bind(vol_label))
-	panel_body.add_child(slider)
+	for spec in [["Master", "audio_master"], ["Music", "audio_music"], ["SFX", "audio_sfx"]]:
+		var vol_label := Label.new()
+		vol_label.text = "%s Volume: %d%%" % [spec[0], int(settings[spec[1]])]
+		panel_body.add_child(vol_label)
+		var slider := HSlider.new()
+		slider.min_value = 0
+		slider.max_value = 100
+		slider.value = float(settings[spec[1]])
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slider.custom_minimum_size = Vector2(120, 32)
+		slider.focus_mode = Control.FOCUS_ALL
+		slider.value_changed.connect(_on_volume_changed.bind(vol_label, spec[1], spec[0]))
+		panel_body.add_child(slider)
 
 	var rebind_hdr := Label.new()
 	rebind_hdr.text = "Keyboard Remap (press a button, then any key):"
@@ -550,30 +562,30 @@ func _build_options() -> void:
 
 func _on_high_contrast_toggled(enabled: bool) -> void:
 	SaveStore.set_settings(save, {"high_contrast": enabled})
-	SaveStore.save_to_path(save, SAVE_PATH)
+	SaveStore.save_to_path(save, save_path)
 	_refresh_theme()
 
 
 func _on_reduced_shake_toggled(enabled: bool) -> void:
 	SaveStore.set_settings(save, {"reduced_shake": enabled})
-	SaveStore.save_to_path(save, SAVE_PATH)
+	SaveStore.save_to_path(save, save_path)
 
 
 func _on_touch_overlay_toggled(enabled: bool) -> void:
 	SaveStore.set_settings(save, {"touch_overlay": enabled})
-	SaveStore.save_to_path(save, SAVE_PATH)
+	SaveStore.save_to_path(save, save_path)
 
 
 func _on_text_scale_pressed(scale: float) -> void:
 	SaveStore.set_settings(save, {"text_scale": scale})
-	SaveStore.save_to_path(save, SAVE_PATH)
+	SaveStore.save_to_path(save, save_path)
 	_refresh_theme()
 
 
-func _on_volume_changed(value: float, label: Label) -> void:
-	SaveStore.set_settings(save, {"audio_master": int(value)})
-	SaveStore.save_to_path(save, SAVE_PATH)
-	label.text = "Master Volume: %d%%" % int(value)
+func _on_volume_changed(value: float, label: Label, key: String, caption: String) -> void:
+	SaveStore.set_settings(save, {key: int(value)})
+	SaveStore.save_to_path(save, save_path)
+	label.text = "%s Volume: %d%%" % [caption, int(value)]
 	UniloopUI.apply_audio(SaveStore.get_settings(save))
 
 

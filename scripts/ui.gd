@@ -202,9 +202,13 @@ static func device_for(event: InputEvent) -> String:
 
 
 static func apply_audio(settings: Dictionary) -> void:
-	var bus := AudioServer.get_bus_index("Master")
-	if bus >= 0:
-		AudioServer.set_bus_volume_linear(bus, float(settings.get("audio_master", 80)) / 100.0)
+	for name in ["Master", "Music", "SFX"]:
+		var bus := AudioServer.get_bus_index(name)
+		if bus < 0:
+			continue
+		var volume := float(settings.get("audio_" + name.to_lower(), 80)) / 100.0
+		AudioServer.set_bus_volume_linear(bus, volume)
+		AudioServer.set_bus_mute(bus, volume == 0.0)
 
 
 static func restore_bindings(save: Dictionary) -> void:
