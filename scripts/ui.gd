@@ -206,7 +206,13 @@ static func controls_hint_lines(device: String) -> PackedStringArray:
 
 
 static func controls_hint_text(device: String) -> String:
-	return "\n".join(controls_hint_lines(device))
+	return "%s\n%s" % [mode_label(device), "\n".join(controls_hint_lines(device))]
+
+
+static func mode_label(device: String) -> String:
+	if is_gamepad_device(device):
+		return "GAMEPAD"
+	return "KEYBOARD" if device == "keyboard" else device.to_upper()
 
 
 static func is_gamepad_device(device: String) -> bool:

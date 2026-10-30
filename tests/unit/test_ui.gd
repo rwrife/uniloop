@@ -59,6 +59,9 @@ func test_device_prompts() -> void:
 	assert_eq(UI.gamepad_type_from_name("Xbox Wireless Controller"), "xbox")
 	assert_eq(UI.gamepad_type_from_name("DualSense Wireless Controller"), "playstation")
 	assert_eq(UI.gamepad_type_from_name("Nintendo Switch Pro Controller"), "nintendo")
+	assert_eq(UI.mode_label("xbox"), "GAMEPAD")
+	assert_eq(UI.mode_label("playstation"), "GAMEPAD")
+	assert_eq(UI.mode_label("keyboard"), "KEYBOARD")
 	assert_true(UI.controls_hint_text("keyboard").contains("Space"))
 	assert_eq(UI.device_for(InputEventKey.new()), "keyboard")
 	assert_eq(UI.device_for(InputEventScreenTouch.new()), "touch")
@@ -123,11 +126,12 @@ func test_menu_gamepad_confirm_activates_focused_button() -> void:
 	add_child_autofree(menu)
 	assert_eq(menu.screen, "title")
 	assert_true(menu.buttons.quick_race.has_focus())
-	var confirm := InputEventAction.new()
-	confirm.action = &"jump"
+	var confirm := InputEventJoypadButton.new()
+	confirm.button_index = JOY_BUTTON_A
 	confirm.pressed = true
 	menu._input(confirm)
 	assert_eq(menu.screen, "uni")
+	assert_true(menu.device_label.text.begins_with("GAMEPAD"))
 
 func test_practice_control_hints_follow_active_device() -> void:
 	var practice: Node3D = load("res://scenes/practice.tscn").instantiate()
