@@ -66,6 +66,8 @@ Multiplayer is a disabled “coming soon” menu item. Android and iOS are devel
 
 Prompts adapt to keyboard, Xbox, PlayStation, and Nintendo input. Keyboard gameplay bindings can be changed in Options.
 
+The rider's cosmetic lean follows travel through tricks and direction changes, easing up to 20 degrees on rails with a smaller airborne lean. Losing desktop focus pauses the race; after resuming, Space controls jumping rather than reactivating the Pause button.
+
 ## Privacy and saves
 
 The game runs offline without accounts, ads, analytics, telemetry, or live leaderboards. Records and settings are stored locally in Godot's `user://` directory. No location, microphone, or camera permission is required.
