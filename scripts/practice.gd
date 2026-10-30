@@ -48,6 +48,7 @@ var popup: Label
 var stats_panel: PanelContainer
 var finish_fx: FinishFX
 var audio: AUDIO
+var _checkpoint_bursts: Array[CPUParticles3D] = []
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
@@ -195,6 +196,7 @@ func _ready() -> void:
 		push_warning("Save unreadable (%s); original left untouched" % result.error)
 		_show_popup("SAVE UNREADABLE", Color(1.0, 0.3, 0.25), 2.0)
 	_build_stats_panel()
+	_build_checkpoint_confetti()
 	if DisplayServer.is_touchscreen_available() and SaveStore.get_settings(save).touch_overlay:
 		_build_touch_overlay()
 	_apply_safe_area()
@@ -401,6 +403,8 @@ func _on_checkpoint(body: Node3D, index: int) -> void:
 	if body != rider or absf(rider.speed) < rider.handling.gate_min_speed or not rules.cross_checkpoint(index):
 		return
 	_last_gate = index
+	audio.play_sfx("checkpoint")
+	_checkpoint_confetti(index)
 	_show_popup("CHECKPOINT %d/%d" % [index + 1, course.gates.size()], UniloopUI.CYAN, 0.6)
 
 func _on_finish(body: Node3D) -> void:
@@ -480,6 +484,54 @@ func _show_popup(text: String, color: Color, hold := 0.9) -> void:
 	tween.tween_property(popup, "scale", Vector2.ONE, 0.15)
 	tween.tween_interval(hold)
 	tween.tween_property(popup, "modulate:a", 0.0, 0.35)
+
+func _checkpoint_confetti(index: int) -> void:
+	var burst := _checkpoint_bursts[index]
+	_checkpoint_bursts[index] = null
+	burst.emitting = true
+
+func _build_checkpoint_confetti() -> void:
+	var reduced: bool = SaveStore.get_settings(save).reduced_shake
+	var palette := Gradient.new()
+	palette.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
+	palette.set_color(0, FinishFX.COLORS[0])
+	palette.set_color(1, FinishFX.COLORS[-1])
+	for i in range(1, FinishFX.COLORS.size() - 1):
+		palette.add_point(float(i) / (FinishFX.COLORS.size() - 1), FinishFX.COLORS[i])
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.32, 0.08, 0.18)
+	var paint := StandardMaterial3D.new()
+	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	paint.vertex_color_use_as_albedo = true
+	mesh.material = paint
+	for index in course.gates.size():
+		var burst := CPUParticles3D.new()
+		burst.name = "CheckpointConfetti%d" % index
+		burst.process_mode = Node.PROCESS_MODE_PAUSABLE
+		burst.one_shot = true
+		burst.amount = 24 if reduced else 96
+		burst.lifetime = 0.8 if reduced else 1.5
+		burst.explosiveness = 1.0
+		burst.local_coords = false
+		burst.direction = Vector3.UP
+		burst.spread = 50.0 if reduced else 55.0
+		burst.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		burst.emission_sphere_radius = 0.25 if reduced else 0.65
+		burst.initial_velocity_min = 3.0 if reduced else 11.0
+		burst.initial_velocity_max = 5.0 if reduced else 18.0
+		burst.gravity = Vector3(0, -10, 0)
+		burst.angle_min = -180.0
+		burst.angle_max = 180.0
+		burst.angular_velocity_min = -240.0
+		burst.angular_velocity_max = 240.0
+		burst.color_initial_ramp = palette
+		burst.mesh = mesh
+		burst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		burst.emitting = false
+		add_child(burst)
+		burst.global_position = course.to_global(course.gates[index].pos + Vector3.UP * 1.5)
+		burst.finished.connect(burst.queue_free)
+		_checkpoint_bursts.append(burst)
 
 func _sparks(color: Color, amount: int) -> void:
 	var burst := CPUParticles3D.new()

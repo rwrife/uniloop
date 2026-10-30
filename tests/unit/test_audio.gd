@@ -15,6 +15,7 @@ const SFX := {
 	"land_clean": "res://assets/audio/sfx/land_clean.wav",
 	"slime_land": "res://assets/audio/sfx/slime_land.wav",
 	"boost": "res://assets/audio/sfx/boost.wav",
+	"checkpoint": "res://assets/audio/sfx/checkpoint_boom.wav",
 }
 
 var _bus_volumes: Dictionary
