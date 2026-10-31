@@ -4,7 +4,6 @@ const AUDIO_SCRIPT := "res://scripts/audio.gd"
 const SAVE_PATH := "user://test_audio_settings.json"
 const MUSIC := {
 	"title": "res://assets/audio/music/title.ogg",
-	"race": "res://assets/audio/music/race_theme.ogg",
 }
 const SFX := {
 	"countdown_tick": "res://assets/audio/sfx/countdown_tick.wav",
@@ -69,6 +68,8 @@ func _standalone_audio() -> Node:
 func _seed(audio: Node) -> void:
 	for key in MUSIC:
 		audio._streams[MUSIC[key]] = _tone()
+	for path in audio.RACE_MUSIC:
+		audio._streams[path] = _tone()
 	for key in SFX:
 		audio.get_node(key).stream = _tone()
 
@@ -110,16 +111,115 @@ func test_asset_contract_missing_files_are_silent_and_players_use_buses() -> voi
 	audio.stop_all()
 
 
-func test_race_theme_is_five_minutes_and_plays_once() -> void:
-	var track := load(MUSIC["race"]) as AudioStreamOggVorbis
-	assert_not_null(track)
-	if track == null:
-		return
-	assert_almost_eq(track.get_length(), 300.0, 0.05)
+func test_race_playlist_uses_four_nonlooping_musical_sections() -> void:
 	var audio := _standalone_audio()
+	var durations := [42.0, 114.0, 114.0, 21.0]
+	assert_eq(audio.RACE_MUSIC.size(), durations.size())
+	for index in audio.RACE_MUSIC.size():
+		var track := load(audio.RACE_MUSIC[index]) as AudioStreamOggVorbis
+		assert_not_null(track)
+		if track == null:
+			return
+		assert_almost_eq(track.get_length(), durations[index], 0.05)
+		assert_false(track.loop, "individual sections do not loop")
 	audio.play_music("race")
-	assert_false(track.loop, "five-minute race theme plays through, without restarting intro")
-	assert_true(audio.get_node("Music").playing)
+	assert_true(audio._music.playing)
+	assert_true(audio._music.stream.resource_path in audio.RACE_MUSIC)
+	assert_eq(audio._music.bus, &"Music")
+	assert_eq(audio._music_spare.bus, &"Music")
+
+
+func test_shuffle_plays_every_section_before_refilling_without_adjacent_repeats() -> void:
+	var audio := _standalone_audio()
+	var previous := -1
+	for cycle in 12:
+		var heard: Array[int] = []
+		for index in audio.RACE_MUSIC.size():
+			var segment: int = audio._next_race_segment()
+			assert_ne(segment, previous, "no immediate repeat, including across shuffle cycles")
+			assert_false(segment in heard, "every section plays once per shuffle cycle")
+			heard.append(segment)
+			previous = segment
+		assert_eq(heard.size(), audio.RACE_MUSIC.size())
+
+
+func test_race_crossfade_overlaps_three_seconds_and_pauses_both_players() -> void:
+	var audio := _standalone_audio()
+	_seed(audio)
+	audio.set_process(false)
+	audio.play_music("race")
+	var outgoing: AudioStreamPlayer = audio._music
+	var first_stream := outgoing.stream
+	outgoing.seek(outgoing.stream.get_length() - 3.0)
+	await wait_seconds(0.08)
+	audio._process(0.0)
+	var incoming: AudioStreamPlayer = audio._music
+	assert_ne(incoming, outgoing)
+	assert_ne(incoming.stream, first_stream, "next section differs")
+	assert_true(outgoing.playing)
+	assert_true(incoming.playing, "next section starts before outgoing section ends")
+	await wait_seconds(0.3)
+	assert_gt(outgoing.volume_linear, 0.8, "outgoing music fades over the overlap, not abruptly")
+	assert_gt(incoming.volume_linear, 0.0)
+	assert_lt(incoming.volume_linear, 0.2, "incoming music fades in over three seconds")
+	assert_almost_eq(outgoing.volume_linear + incoming.volume_linear, 1.0, 0.01)
+	audio.set_paused(true)
+	assert_true(outgoing.stream_paused)
+	assert_true(incoming.stream_paused)
+	assert_false(audio._music_fade.is_running())
+	var gain := incoming.volume_linear
+	var position := incoming.get_playback_position()
+	await wait_seconds(0.2)
+	assert_almost_eq(incoming.volume_linear, gain, 0.001, "fade does not advance while paused")
+	assert_almost_eq(incoming.get_playback_position(), position, 0.08)
+	audio.set_paused(false)
+	await wait_seconds(2.8)
+	assert_null(audio._music_fade)
+	assert_false(outgoing.playing)
+	assert_true(incoming.playing)
+	assert_almost_eq(incoming.volume_linear, 1.0, 0.001)
+
+
+func test_finish_or_title_change_cancels_both_sides_of_crossfade() -> void:
+	var audio := _standalone_audio()
+	_seed(audio)
+	audio.set_process(false)
+	for finish in [false, true]:
+		audio.play_music("race")
+		audio._play_race_segment(true)
+		assert_true(audio._music.playing)
+		assert_true(audio._music_spare.playing)
+		if finish:
+			audio.play_finish()
+		else:
+			audio.play_music("title")
+		assert_null(audio._music_fade)
+		assert_false(audio._music_spare.playing)
+		assert_eq(audio.current_music, "" if finish else "title")
+		assert_eq(audio._music.playing, not finish)
+		await wait_seconds(0.15)
+		assert_false(audio._music_spare.playing, "canceled transition cannot restart music")
+	audio.stop_all()
+	audio._music.finished.emit()
+	assert_false(audio._music.playing, "stopped playlist stays stopped")
+
+
+func test_playlist_continues_if_a_section_finishes_before_crossfade_is_processed() -> void:
+	var audio := _standalone_audio()
+	_seed(audio)
+	audio.set_process(false)
+	audio.play_music("race")
+	var first: AudioStream = audio._music.stream
+	var short_track := _tone()
+	var samples := PackedByteArray()
+	samples.resize(800)
+	short_track.data = samples
+	audio._music.stream = short_track
+	audio._music.play()
+	await wait_seconds(0.6)
+	assert_true(audio._music.playing, "natural finished signal advances playlist")
+	assert_ne(audio._music.stream, short_track)
+	assert_ne(audio._music.stream, first, "fallback still follows shuffle order")
 
 
 func test_music_loops_effects_overlap_and_pause_discards_effects() -> void:
@@ -134,7 +234,7 @@ func test_music_loops_effects_overlap_and_pause_discards_effects() -> void:
 	audio.play_music("race")
 	var music: AudioStreamPlayer = audio.get_node("Music")
 	assert_true(music.playing)
-	assert_eq(music.stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "race theme plays through once")
+	assert_eq(music.stream.loop_mode, AudioStreamWAV.LOOP_DISABLED, "race sections advance through the playlist")
 	audio.play_sfx("land_clean")
 	audio.play_sfx("boost")
 	assert_true(audio.get_node("land_clean").playing)
@@ -229,20 +329,25 @@ func test_menu_volume_controls_apply_and_persist_each_channel() -> void:
 		assert_eq(int(sliders[i].value), values[i], "reopened options keep channel volume")
 
 
-func test_practice_countdown_ticks_then_go_starts_race_music() -> void:
+func test_practice_music_starts_before_countdown_and_go_does_not_restart_it() -> void:
 	var practice := _practice(true)
 	var audio := _audio(practice)
 	if audio == null:
 		return
-	_seed(audio)
-	assert_false(audio.get_node("Music").playing, "no race loop during countdown")
+	var music: AudioStreamPlayer = audio._music
+	assert_true(music.playing, "race scene starts music before countdown")
+	assert_eq(audio.current_music, "race")
+	var stream := music.stream
+	await wait_seconds(0.1)
+	var position := music.get_playback_position()
 	for text in ["3", "2", "1"]:
-		audio.stop_all()
 		practice._countdown_beat(text, Color.WHITE, false)
 		assert_true(audio.get_node("countdown_tick").playing, text)
 	practice._countdown_beat("RACE!", Color.WHITE, true)
 	assert_true(audio.get_node("countdown_go").playing)
-	assert_true(audio.get_node("Music").playing)
+	assert_true(music.playing)
+	assert_same(music.stream, stream, "countdown does not select another section")
+	assert_gte(music.get_playback_position(), position - 0.02, "GO does not restart music")
 	assert_eq(audio.current_music, "race")
 
 
