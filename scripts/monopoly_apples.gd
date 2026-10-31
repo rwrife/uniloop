@@ -31,7 +31,7 @@ func populate(course: CanyonCourse) -> void:
 	stem.radial_segments = 6
 	stem.material = _paint(Color("#61402d"))
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	rng.seed = 150015
 	for index in course.sections.size():
 		var section: CanyonCourse.Section = course.sections[index]
 		var distance := rng.randf_range(24.0, 48.0)
@@ -43,6 +43,8 @@ func populate(course: CanyonCourse) -> void:
 					if sample.pos.distance_to(gate.pos) < 10.0:
 						clear = false
 						break
+				if sample.pos.distance_to(course.signature.anchor.pos) < 12.0:
+					clear = false
 				if clear:
 					var apple := Node3D.new()
 					apple.name = "Apple%d" % remaining.size()

@@ -28,6 +28,7 @@ const NEON_RAIL := preload("res://assets/shaders/neon_rail.gdshader")
 const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
 const MONOPOLY_BACKDROP := preload("res://assets/shaders/monopoly_backdrop.gdshader")
 const APPLES := preload("res://scripts/monopoly_apples.gd")
+const SIGNATURE := preload("res://scripts/course_signature.gd")
 const MONOPOLY_KIND_COLORS := [
 	[Color(0.72, 0.72, 0.72), Color(0.54, 0.54, 0.54)],
 	[Color(0.82, 0.82, 0.82), Color(0.46, 0.46, 0.46)],
@@ -159,6 +160,8 @@ var uturns := 0
 var loops := 0
 var bounds := AABB()
 var apples: MonopolyApples
+var signature: CourseSignature
+var _signature_spot: Dictionary
 
 var _sec: Section
 var _sec_index := -1
@@ -190,6 +193,7 @@ func _ready() -> void:
 	_resolve(finish)
 	for pad in boosts:
 		_resolve(pad)
+	_resolve(_signature_spot)
 	_index_landing()
 	_build_rail()
 	_build_collision()
@@ -204,6 +208,10 @@ func _ready() -> void:
 		_add_boost_pad(pad)
 	for fork in forks:
 		_add_junction_marker(fork.split)
+	signature = SIGNATURE.new()
+	signature.name = "CourseSignature"
+	add_child(signature)
+	signature.populate(self, _signature_spot)
 	if course_id == "the_monopoly":
 		apples = APPLES.new()
 		apples.name = "Apples"
@@ -342,6 +350,12 @@ func _spot(ahead: float) -> Dictionary:
 
 func _gate() -> void:
 	gates.append(_spot(0.0))
+	if gates.size() == 1:
+		_line(20.0)
+		_signature_spot = _spot(0.0)
+		# A flat runway makes the contact learnable and leaves room for a full
+		# trampoline arc at the boost cap before any existing loop or fork.
+		_line(150.0 if course_id == "sunny_sprint" else 100.0)
 
 func _boost() -> void:
 	boosts.append(_spot(2.0))
