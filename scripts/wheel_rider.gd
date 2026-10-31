@@ -50,6 +50,10 @@ var _mud_clumps: CPUParticles3D
 var _skip_sec := -1
 var _skip_lo := 0.0
 var _skip_hi := 0.0
+var corkscrewing := false
+var signature_falling := false
+var bind_time := 0.0
+var _signature_latched := false
 
 func _ready() -> void:
 	assert(handling != null)
@@ -253,7 +257,7 @@ func _build_mud_clumps() -> CPUParticles3D:
 	return clumps
 
 func _active() -> bool:
-	return not cruise and recover_time <= 0.0
+	return not cruise and recover_time <= 0.0 and bind_time <= 0.0 and not signature_falling
 
 func consume_jump_input() -> void:
 	_jump_input_consumed = Input.is_action_pressed(&"jump") or Input.is_action_just_pressed(&"jump")
@@ -271,9 +275,21 @@ func _jump_just_pressed() -> bool:
 	return not _jump_input_consumed and Input.is_action_just_pressed(&"jump")
 
 func _physics_process(delta: float) -> void:
+	if get_tree().paused or delta <= 0.0:
+		return
 	recover_time = maxf(0.0, recover_time - delta)
 	boost_time = maxf(0.0, boost_time - delta)
-	if grounded and course != null:
+	if _signature_latched and course != null and course.signature.clear_of_contact(global_position, handling.wheel_radius):
+		_signature_latched = false
+	if corkscrewing:
+		_corkscrew_step(delta)
+	elif bind_time > 0.0:
+		bind_time = maxf(0.0, bind_time - delta)
+		speed = 0.0
+		if bind_time == 0.0:
+			course.signature.clear()
+			speed = handling.goo_speed
+	elif grounded and course != null:
 		_ground_step(delta)
 	else:
 		_air_step(delta)
@@ -325,6 +341,14 @@ func _ground_step(delta: float) -> void:
 		speed = clampf(speed, -h.max_speed, h.max_speed * h.boost_cap)
 	var before := distance
 	distance += speed * delta
+	var signature := course.signature
+	if (signature.kind == "corkscrew" and not _signature_latched and _active()
+			and speed > 0.0 and signature.enters(section, before, distance)
+			and Input.is_action_pressed(&"flip_back") and not _jump_just_pressed()):
+		_signature_latched = true
+		corkscrewing = true
+		_place_corkscrew()
+		return
 	if course.boost_between(section, before, distance) and speed >= 0.0:
 		speed = minf(maxf(speed, h.max_speed) + h.boost_speed, h.max_speed * h.boost_cap)
 		boost_time = 1.0
@@ -353,7 +377,10 @@ func _ground_step(delta: float) -> void:
 		else:
 			break
 	smp = course.sample(section, distance)
+	var from := global_position
 	_place(smp, delta)
+	if _signature_contact(from, global_position):
+		return
 	var grip: float = speed * speed * smp.curv + h.gravity * smp.n.y
 	if grip < 0.0 and absf(speed) > 1.0:
 		_leave_ground(smp.seg_t * speed)
@@ -426,10 +453,106 @@ func _air_step(delta: float) -> void:
 			zflip_air += settle
 	var from := global_position
 	global_position += velocity * delta
-	if course != null and air_time > 0.05:
-		var hit := course.find_landing(from, global_position, velocity, h.wheel_radius, _skip_sec, _skip_lo, _skip_hi)
+	if course != null and not signature_falling:
+		var hit := {}
+		if air_time > 0.05:
+			hit = course.find_landing(from, global_position, velocity, h.wheel_radius, _skip_sec, _skip_lo, _skip_hi)
+		var contact := course.signature.sweep(from, global_position, h.wheel_radius) if _active() and not _signature_latched else {}
+		if not contact.is_empty() and (hit.is_empty() or contact.f <= hit.f):
+			_apply_signature_contact(contact)
+			return
 		if not hit.is_empty():
 			_land(hit)
+
+func _signature_contact(from: Vector3, to: Vector3) -> bool:
+	if not _active() or _signature_latched:
+		return false
+	var hit := course.signature.sweep(from, to, handling.wheel_radius)
+	if hit.is_empty():
+		return false
+	_apply_signature_contact(hit)
+	return true
+
+func _apply_signature_contact(hit: Dictionary) -> void:
+	var signature := course.signature
+	var h := handling
+	_signature_latched = true
+	match signature.kind:
+		"trampoline":
+			global_position = hit.pos
+			section = signature.anchor.sec
+			distance = signature.anchor.s + global_position.x - signature.anchor.pos.x
+			global_position.y = signature.anchor.pos.y + signature.volume.end.y + h.wheel_radius
+			var horizontal := speed if grounded else velocity.x
+			speed = horizontal
+			_leave_ground(Vector3(horizontal, CourseSignature.TRAMPOLINE_SPEED, 0))
+		"flux_gate":
+			signature.spend()
+			if grounded and Input.is_action_pressed(&"brake"):
+				speed = minf(h.max_speed * 1.5, h.max_speed * h.boost_cap)
+				boost_time = 1.0
+				boosted.emit()
+			else:
+				speed *= 0.25
+				velocity *= 0.25
+				boost_time = 0.0
+		"binding_bubble":
+			signature.spend(false)
+			section = signature.anchor.sec
+			distance = signature.anchor.s + hit.pos.x - signature.anchor.pos.x
+			grounded = true
+			velocity = Vector3.ZERO
+			speed = 0.0
+			bind_time = CourseSignature.BIND_SECONDS
+			pump_queued = false
+			twist = 0.0
+			zflip = 0.0
+			tabletop = 0.0
+			var sample := course.sample(section, distance)
+			_place(sample, 1.0)
+			pitch = _surface_pitch(sample.t)
+		"quota_crate":
+			signature.spend()
+			speed *= 0.55
+			velocity *= 0.55
+			boost_time = 0.0
+
+func _place_corkscrew() -> void:
+	distance = clampf(distance, course.signature.anchor.s, course.signature.anchor.s + CourseSignature.CORK_LENGTH)
+	var sample := course.signature.cork_sample(distance - course.signature.anchor.s, handling.wheel_radius)
+	global_position = sample.pos
+	yaw = 0.0
+	pitch = 0.0
+	twist = 0.0
+	zflip = 0.0
+	tabletop = 0.0
+	velocity = Vector3.ZERO
+
+func _corkscrew_step(delta: float) -> void:
+	var signature := course.signature
+	var pump := maxf(Input.get_action_strength(&"flip_back"), Input.get_action_strength(&"roll_forward"))
+	if Input.is_action_pressed(&"brake"):
+		speed = move_toward(speed, 0.0, handling.brake * delta)
+	elif pump > 0.0:
+		speed = move_toward(speed, CourseSignature.CORK_MAX_SPEED, CourseSignature.CORK_PUMP * pump * delta)
+	else:
+		speed = move_toward(speed, 0.0, CourseSignature.CORK_COAST_DRAG * delta)
+	distance = minf(distance + speed / signature.cork_ratio() * delta, signature.anchor.s + CourseSignature.CORK_LENGTH)
+	_place_corkscrew()
+	if _jump_just_pressed() or speed < CourseSignature.CORK_MIN_SPEED:
+		_exit_corkscrew()
+	elif distance >= signature.anchor.s + CourseSignature.CORK_LENGTH:
+		corkscrewing = false
+		speed = minf(speed / signature.cork_ratio(), handling.max_speed * handling.boost_cap)
+		_place(course.sample(section, distance), 1.0)
+
+func _exit_corkscrew() -> void:
+	var sample := course.signature.cork_sample(distance - course.signature.anchor.s, handling.wheel_radius)
+	corkscrewing = false
+	speed = minf(speed / course.signature.cork_ratio(), handling.max_speed * handling.boost_cap)
+	signature_falling = sample.n.y < 0.85
+	zflip = sample.angle
+	_leave_ground(Vector3(speed, -8.0 if signature_falling else handling.jump_speed, 0))
 
 func _land(hit: Dictionary) -> void:
 	var h := handling
@@ -506,6 +629,9 @@ func _land(hit: Dictionary) -> void:
 
 func _update_pose(delta: float) -> void:
 	basis = Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, pitch)
+	if corkscrewing:
+		var normal: Vector3 = course.signature.cork_sample(distance - course.signature.anchor.s, handling.wheel_radius).n
+		basis = Basis(Vector3.RIGHT, normal, Vector3.RIGHT.cross(normal))
 	var fallen := 0.0
 	if recover_time > 0.0:
 		fallen = 1.45 * clampf(recover_time / handling.recover_time * 1.8, 0.0, 1.0)
@@ -589,6 +715,12 @@ func _reset_visual_motion() -> void:
 	reset_physics_interpolation()
 
 func _clear_state() -> void:
+	if bind_time > 0.0 and course != null:
+		course.signature.clear()
+	corkscrewing = false
+	signature_falling = false
+	bind_time = 0.0
+	_signature_latched = false
 	if _goo_splatter != null:
 		_goo_splatter.emitting = false
 	if _mud_clumps != null:
