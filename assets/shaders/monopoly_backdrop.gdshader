@@ -12,7 +12,7 @@ void fragment() {
 	vec2 broad = step(vec2(0.30), p) * step(p, vec2(0.66));
 	vec2 fine = step(vec2(0.80), p) * step(p, vec2(0.85));
 	vec2 thread = step(vec2(0.96), fract(world_pos.xy * 2.0));
-	float gray = 0.39 - 0.065 * (broad.x + broad.y)
-		- 0.04 * (fine.x + fine.y) + 0.012 * (thread.x + thread.y);
+	float gray = 0.18 - 0.03 * (broad.x + broad.y)
+		- 0.018 * (fine.x + fine.y) + 0.006 * (thread.x + thread.y);
 	ALBEDO = vec3(pow(gray, 2.2));
 }
