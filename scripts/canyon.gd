@@ -29,11 +29,11 @@ const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
 const MONOPOLY_BACKDROP := preload("res://assets/shaders/monopoly_backdrop.gdshader")
 const APPLES := preload("res://scripts/monopoly_apples.gd")
 const MONOPOLY_KIND_COLORS := [
-	[Color(0.58, 0.58, 0.58), Color(0.38, 0.38, 0.38)],
-	[Color(0.72, 0.72, 0.72), Color(0.28, 0.28, 0.28)],
-	[Color(0.62, 0.62, 0.62), Color(0.46, 0.46, 0.46)],
-	[Color(0.85, 0.85, 0.85), Color(0.18, 0.18, 0.18)],
-	[Color(0.85, 0.85, 0.85), Color(0.18, 0.18, 0.18)],
+	[Color(0.72, 0.72, 0.72), Color(0.54, 0.54, 0.54)],
+	[Color(0.82, 0.82, 0.82), Color(0.46, 0.46, 0.46)],
+	[Color(0.76, 0.76, 0.76), Color(0.60, 0.60, 0.60)],
+	[Color(0.92, 0.92, 0.92), Color(0.38, 0.38, 0.38)],
+	[Color(0.92, 0.92, 0.92), Color(0.38, 0.38, 0.38)],
 ]
 const MUD_COLOR := Color("#92582c")
 const NEON_SPARK_COLOR := Color("#ff24c8")

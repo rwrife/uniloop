@@ -57,10 +57,14 @@ func test_monopoly_is_a_complete_catalogued_course() -> void:
 func test_only_rails_and_backdrop_are_grayscale() -> void:
 	var course := _course()
 	assert_gt(course.rail_colors.size(), 0)
+	var darkest := 1.0
 	for color in course.rail_colors:
+		darkest = minf(darkest, color.r)
 		if not is_equal_approx(color.r, color.g) or not is_equal_approx(color.g, color.b):
 			fail_test("A rail or joint has a non-gray color")
 			return
+	assert_almost_eq(darkest, 0.38, 0.001, "even dark rail stripes stand out against the dark plaid")
+	assert_almost_eq(course.rail_colors[0].r, 0.72, 0.001, "normal rails use the lighter gray")
 	assert_eq(course.get_node("Backdrop").material_override.shader, CanyonCourse.MONOPOLY_BACKDROP)
 	assert_false(course.is_processing(), "plaid is static")
 	var rail: MultiMeshInstance3D = course.get_node("Rail").get_child(0)
