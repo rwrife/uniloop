@@ -54,6 +54,16 @@ const TRACKS: Array[Dictionary] = [
 		"medals": {"gold": 255000, "silver": 300000, "bronze": 400000},
 		"sky": [Color(0.3, 0.36, 0.2), Color(0.38, 0.44, 0.24), Color(0.22, 0.3, 0.14)],
 	},
+	{
+		"id": "the_monopoly", "title": "The Monopoly",
+		"blurb": "Corporate gray. Endless quotas. Squash red apples for 100 points against corporate greed.",
+		"length": 2, "speed": 2, "difficulty": 2,
+		"plan": [["RA", "uturn"], ["L", "launch"], ["RB", "launch"], ["L", "uturn"],
+			["RA", "uturn"], ["L", "launch"], ["FINAL", ""]],
+		"bumps": [2, 4],
+		"medals": {"gold": 145000, "silver": 180000, "bronze": 240000},
+		"sky": [Color(0.32, 0.32, 0.32), Color(0.40, 0.40, 0.40), Color(0.24, 0.24, 0.24)],
+	},
 ]
 const DEFAULT_TRACK := "canyon_climb"
 

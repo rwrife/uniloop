@@ -290,6 +290,11 @@ func _open(which: String) -> void:
 	for child in panel_body.get_children():
 		panel_body.remove_child(child)
 		child.queue_free()
+	var navigation := panel.get_node_or_null("Content/TrackNavigation")
+	if navigation != null:
+		navigation.get_parent().remove_child(navigation)
+		navigation.queue_free()
+	back_btn.focus_neighbor_top = NodePath()
 	back_btn.text = "MENU" if PARENT.get(which, "title") == "title" else "BACK"
 	UniloopUI.style_chunky(back_btn, int(30 * _ui_scale()))
 	match which:
@@ -312,12 +317,14 @@ func _open(which: String) -> void:
 ## Centre the panel and cap its size so it never sprawls across big screens.
 func _fit_panel() -> void:
 	var s := _ui_scale()
-	var widths := {"uni": 900.0, "track": 1220.0 if get_viewport_rect().size.x >= 1240 * s else 680.0, "league": 860.0, "options": 820.0, "help": 860.0}
+	var widths := {"uni": 900.0, "track": 1220.0, "league": 860.0, "options": 820.0, "help": 860.0}
 	var room := get_viewport_rect().size - Vector2(
 		safe.get_theme_constant("margin_left") + safe.get_theme_constant("margin_right"),
 		safe.get_theme_constant("margin_top") + safe.get_theme_constant("margin_bottom"))
 	# Portrait uni picker has three rows; give it height before enabling scrolling.
-	var height := 920.0 if screen == "uni" and room.x < room.y else float({"track": 580.0, "uni": 760.0}.get(screen, 860.0))
+	var height := 920.0 if screen == "uni" and room.x < room.y else float({"track": 660.0, "uni": 760.0}.get(screen, 860.0))
+	if screen == "track" and room.x < room.y:
+		height = 1700.0
 	panel.custom_minimum_size = Vector2(
 		minf(room.x, float(widths.get(screen, 860.0)) * s),
 		minf(room.y, height * s))
@@ -396,12 +403,22 @@ func _on_uni_picked(index: int) -> void:
 func _build_track_picker() -> void:
 	panel_title.text = "PICK YOUR TRACK"
 	var s := _ui_scale()
-	var grid := GridContainer.new()
-	grid.columns = 4 if get_viewport_rect().size.x >= 1240 * s else 2
-	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	grid.add_theme_constant_override("h_separation", int(18 * s))
-	grid.add_theme_constant_override("v_separation", int(18 * s))
-	panel_body.add_child(grid)
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.y > viewport_size.x:
+		s = maxf(s, viewport_size.x / 390.0)
+	var scroll := ScrollContainer.new()
+	scroll.name = "TrackScroller"
+	scroll.custom_minimum_size.y = 382 * s
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	scroll.scroll_deadzone = 10
+	panel_body.add_child(scroll)
+	var tracks := HBoxContainer.new()
+	tracks.name = "Tracks"
+	tracks.add_theme_constant_override("separation", int(18 * s))
+	scroll.add_child(tracks)
 	var selected := 0
 	for i in RaceSetup.TRACKS.size():
 		var t: Dictionary = RaceSetup.TRACKS[i]
@@ -426,6 +443,8 @@ func _build_track_picker() -> void:
 		sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(sky)
 		var title := UniloopUI.chunky_label(String(t.title).to_upper(), int(34 * s))
+		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		title.custom_minimum_size.y = 84 * s
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(title)
@@ -454,7 +473,45 @@ func _build_track_picker() -> void:
 		best.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(best)
 		card.pressed.connect(_on_track_picked.bind(i))
-		grid.add_child(card)
+		tracks.add_child(card)
+	var navigation := HBoxContainer.new()
+	navigation.name = "TrackNavigation"
+	navigation.add_theme_constant_override("separation", int(12 * s))
+	var content: VBoxContainer = panel.get_node("Content")
+	content.add_child(navigation)
+	content.move_child(navigation, 1)
+	var previous := UniloopUI.chunky_button("<", int(30 * s), Vector2(56, 48) * s)
+	previous.name = "Previous"
+	previous.tooltip_text = "Previous tracks"
+	navigation.add_child(previous)
+	var hint := Label.new()
+	hint.text = "SCROLL FOR MORE TRACKS"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.add_theme_font_size_override("font_size", int(18 * s))
+	navigation.add_child(hint)
+	var next := UniloopUI.chunky_button(">", int(30 * s), Vector2(56, 48) * s)
+	next.name = "Next"
+	next.tooltip_text = "More tracks"
+	navigation.add_child(next)
+	var bar := scroll.get_h_scroll_bar()
+	var update_arrows := func(_value := 0.0) -> void:
+		previous.disabled = bar.value <= bar.min_value
+		next.disabled = bar.value >= bar.max_value - bar.page - 1.0
+	bar.value_changed.connect(update_arrows)
+	bar.changed.connect(update_arrows)
+	previous.pressed.connect(func() -> void: scroll.scroll_horizontal -= roundi(288 * s))
+	next.pressed.connect(func() -> void: scroll.scroll_horizontal += roundi(288 * s))
+	for i in cards.size():
+		var card := cards[i]
+		card.focus_neighbor_left = card.get_path_to(cards[maxi(0, i - 1)])
+		card.focus_neighbor_right = card.get_path_to(cards[mini(cards.size() - 1, i + 1)])
+		card.focus_neighbor_top = card.get_path()
+		card.focus_neighbor_bottom = card.get_path_to(back_btn)
+		card.focus_entered.connect(func() -> void: back_btn.focus_neighbor_top = back_btn.get_path_to(card))
+	back_btn.focus_neighbor_top = back_btn.get_path_to(cards[selected])
+	scroll.ensure_control_visible.call_deferred(cards[selected])
 	cards[selected].grab_focus()
 
 

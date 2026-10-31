@@ -26,6 +26,15 @@ const NEON_KIND_COLORS := [
 ]
 const NEON_RAIL := preload("res://assets/shaders/neon_rail.gdshader")
 const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
+const MONOPOLY_BACKDROP := preload("res://assets/shaders/monopoly_backdrop.gdshader")
+const APPLES := preload("res://scripts/monopoly_apples.gd")
+const MONOPOLY_KIND_COLORS := [
+	[Color(0.72, 0.72, 0.72), Color(0.54, 0.54, 0.54)],
+	[Color(0.82, 0.82, 0.82), Color(0.46, 0.46, 0.46)],
+	[Color(0.76, 0.76, 0.76), Color(0.60, 0.60, 0.60)],
+	[Color(0.92, 0.92, 0.92), Color(0.38, 0.38, 0.38)],
+	[Color(0.92, 0.92, 0.92), Color(0.38, 0.38, 0.38)],
+]
 const MUD_COLOR := Color("#92582c")
 const NEON_SPARK_COLOR := Color("#ff24c8")
 const BACK_Z := -10.0
@@ -149,6 +158,7 @@ var launches: Array[Vector3] = []
 var uturns := 0
 var loops := 0
 var bounds := AABB()
+var apples: MonopolyApples
 
 var _sec: Section
 var _sec_index := -1
@@ -194,6 +204,11 @@ func _ready() -> void:
 		_add_boost_pad(pad)
 	for fork in forks:
 		_add_junction_marker(fork.split)
+	if course_id == "the_monopoly":
+		apples = APPLES.new()
+		apples.name = "Apples"
+		add_child(apples)
+		apples.populate(self)
 	set_process(course_id == "neon_night" and not reduced_motion)
 
 func _process(delta: float) -> void:
@@ -691,6 +706,10 @@ func _build_rail() -> void:
 		neon_paint.shader = NEON_RAIL
 		rail_paint = neon_paint
 		colors = NEON_KIND_COLORS
+	elif course_id == "the_monopoly":
+		colors = MONOPOLY_KIND_COLORS
+		paint.metallic = 0.0
+		paint.roughness = 0.95
 	var tube := CylinderMesh.new()
 	tube.top_radius = RAIL_RADIUS
 	tube.bottom_radius = RAIL_RADIUS
@@ -939,6 +958,8 @@ func _build_backdrop() -> void:
 		material.shader = NEON_BACKDROP
 		material.set_shader_parameter("effect_strength", 0.45 if high_contrast else 1.0)
 		_neon_backdrop = material
+	elif course_id == "the_monopoly":
+		material.shader = MONOPOLY_BACKDROP
 	else:
 		material.shader = Shader.new()
 		material.shader.code = BACKDROP_SHADER
