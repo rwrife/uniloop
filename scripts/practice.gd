@@ -180,6 +180,8 @@ func _ready() -> void:
 	rider.boosted.connect(_on_boosted)
 	rider.took_off.connect(_on_took_off)
 	rules = RaceRules.new(course.gates.size())
+	if course.apples != null:
+		course.apples.squashed.connect(_on_apple_squashed)
 	var spot := course.spawn(-1)
 	rider.place_on(spot.sec, spot.s)
 	_last_pos = rider.global_position
@@ -271,6 +273,8 @@ func _physics_process(delta: float) -> void:
 	var ms := int(_milliseconds)
 	rules.tick(ms)
 	_milliseconds -= ms
+	if course.apples != null:
+		course.apples.squash_between(_last_pos, here, rider.handling.wheel_radius)
 	var next := rules.next_checkpoint
 	if next < course.gates.size():
 		if course.crossed(course.gates[next], _last_pos, here):
@@ -430,6 +434,11 @@ func _on_finish(body: Node3D) -> void:
 	rider.recover_time = 0.0
 	_finish_timer = 0.0
 	popup.visible = false # Clear prior checkpoint/trick popup during finish rollout.
+
+func _on_apple_squashed() -> void:
+	rules.score += MonopolyApples.POINTS
+	audio.play_sfx("slime_land")
+	_show_popup("CORPORATE GREED SQUASHED!\n+%d" % MonopolyApples.POINTS, MonopolyApples.RED)
 
 func _reset() -> void:
 	audio.play_sfx("crash")
