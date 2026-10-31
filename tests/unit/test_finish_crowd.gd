@@ -33,7 +33,7 @@ func test_supplied_cheer_is_loaded_as_nonlooping_scene_owned_effect() -> void:
 	assert_false(crowd.playing, "no crowd during normal racing")
 	print("Supplied finish crowd duration: %.3f seconds" % crowd.stream.get_length())
 
-func test_valid_finish_fades_crowd_behind_existing_finish_cue_without_waiting() -> void:
+func test_valid_finish_fades_crowd_above_gameplay_effect_level_without_waiting() -> void:
 	var practice := _practice()
 	var audio: Node = practice.audio
 	var crowd: AudioStreamPlayer = audio.get_node("FinishCrowd")
@@ -44,14 +44,14 @@ func test_valid_finish_fades_crowd_behind_existing_finish_cue_without_waiting() 
 	_finish(practice)
 	assert_true(crowd.playing)
 	assert_false(audio.get_node("Music").playing, "race music cannot compete with finish audio")
-	assert_true(audio.get_node("finish").playing, "original finish cue remains foreground")
+	assert_true(audio.get_node("finish").playing, "original finish cue still plays")
 	assert_lt(crowd.volume_db, -30.0, "crowd starts softly")
 	assert_true(practice.rider.cruise, "finish rollout begins without waiting for the clip")
 	assert_eq(practice._finish_timer, 0.0)
 	assert_false(practice.finish_stats.is_empty())
 	await wait_seconds(0.75)
-	assert_almost_eq(crowd.volume_db, -14.0, 0.1, "crowd stays quieter than foreground effects")
-	assert_lt(crowd.volume_db, audio.get_node("finish").volume_db)
+	assert_almost_eq(crowd.volume_db, -3.0, 0.1, "crowd reaches the louder celebration mix")
+	assert_almost_eq(crowd.volume_db, audio.get_node("finish").volume_db + 3.0, 0.1, "crowd is 3 dB above normal gameplay effects")
 	var before := crowd.get_playback_position()
 	practice._on_finish(practice.rider)
 	assert_gte(crowd.get_playback_position(), before - 0.02, "duplicate finish event cannot restart cheers")
@@ -81,13 +81,26 @@ func test_crowd_pauses_resumes_and_stops_with_scene_audio() -> void:
 	assert_null(audio._crowd_fade)
 	audio.free()
 
-func test_crowd_ends_naturally_without_restarting() -> void:
+func test_crowd_fades_out_over_final_half_second_and_ends_without_restarting() -> void:
 	var practice := _practice()
+	var audio: Node = practice.audio
 	var crowd: AudioStreamPlayer = practice.audio.get_node("FinishCrowd")
 	crowd.pitch_scale = 4.0
 	watch_signals(crowd)
 	_finish(practice)
-	await wait_seconds(crowd.stream.get_length() / 4.0 + 0.4)
+	await wait_seconds(crowd.stream.get_length() / crowd.pitch_scale - 0.65)
+	assert_almost_eq(crowd.volume_db, -3.0, 0.1, "cheering holds its louder level before the final half second")
+	await wait_seconds(0.3)
+	assert_true(crowd.playing)
+	assert_gt(crowd.volume_linear, 0.0)
+	assert_lt(crowd.volume_linear, db_to_linear(-3.0), "final half second fades toward silence")
+	audio.set_paused(true)
+	var gain := crowd.volume_linear
+	await wait_seconds(0.15)
+	assert_almost_eq(crowd.volume_linear, gain, 0.001, "fade-out pauses with the cheer")
+	audio.set_paused(false)
+	await wait_seconds(0.75)
+	assert_almost_eq(crowd.volume_linear, 0.0, 0.001, "cheer reaches silence at its end")
 	assert_false(crowd.playing)
 	assert_signal_emit_count(crowd, "finished", 1, "single background playthrough")
 	practice._on_finish(practice.rider)

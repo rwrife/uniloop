@@ -161,6 +161,7 @@ func _ready() -> void:
 	audio = AUDIO.new()
 	audio.name = "Audio"
 	add_child(audio)
+	audio.play_music("race")
 	course = COURSE.new()
 	course.name = "CanyonRibbon"
 	course.track_id = RaceSetup.track_id
@@ -203,8 +204,6 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_apply_safe_area)
 	if countdown_enabled:
 		_start_countdown()
-	else:
-		audio.play_music("race")
 
 func _start_countdown() -> void:
 	racing = false
@@ -248,7 +247,6 @@ func _countdown_beat(text: String, color: Color, go: bool) -> void:
 	_shake(0.35 if go else 0.15)
 	_sparks(color, 60 if go else 20)
 	if go:
-		audio.play_music("race")
 		racing = true
 		rider.process_mode = Node.PROCESS_MODE_PAUSABLE
 		pop.chain().tween_interval(0.35)

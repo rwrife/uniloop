@@ -41,6 +41,16 @@ Every 3D mesh, texture, and audio asset in this project is tracked here with its
 | `scripts/practice.gd` (checkpoint confetti) | 3D Effect | `primitive` | One-shot CPUParticles3D BoxMesh rectangles using the existing finish-celebration palette, 96 larger particles (24 gentler with Reduced Motion), automatic cleanup and no shadows; no external art | Active; wider local checkpoint celebration |
 | `assets/audio/sfx/ui_tick.wav` | UI SFX | `procedural` | Same generator; softly enveloped 1050 Hz sine tick, 0.045 s; played 12 dB below source level | Active; navigation focus feedback |
 | `assets/audio/sfx/ui_confirm.wav` | UI SFX | `procedural` | Same generator; rising 660/880 Hz two-note beep, 0.120 s; played 8 dB below source level | Active; option selection feedback |
-| `assets/audio/sfx/finish_crowd.mp3` | Finish ambience | `user-provided` | Exact supplied `dennish18-crowd-cheering-143103.mp3`, unchanged; source/license not independently verified | Plays once quietly behind the finish celebration; follows SFX/Master volume |
+| `assets/audio/sfx/finish_crowd.mp3` | Finish ambience | `user-provided` | Exact supplied `dennish18-crowd-cheering-143103.mp3`, unchanged; source/license not independently verified | Plays once at -3 dB with a 0.6 s fade-in and final 0.5 s fade-out during the finish celebration; follows SFX/Master volume |
 | `assets/audio/music/title.ogg` | Audio Music | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2, prompt: carnival fairground instrumental, calliope/brass/tuba/banjo, 60s) | Accepted; title screen bgm |
-| `assets/audio/music/race_theme.ogg` | Audio Music | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2): 45 s dark orchestral intro at 86 BPM crossfaded into two 172 BPM neon-punk carnival passes (seeds 2661/7311) plus a 24 s reprise, 3 s tri crossfades, 300 s total, plays once | Active; replaced `race_loop.ogg` (removed) |
+| `assets/audio/music/race_theme.ogg` | Audio Music source | `ai-generated` | ACE-Step 1.5 XL Turbo (Spark-2): 45 s dark orchestral intro at 86 BPM crossfaded into two 120 s 172 BPM neon-punk carnival passes (seeds 2661/7311) plus a 24 s reprise, 3 s tri crossfades, 300 s total | Retained unchanged as source; gameplay uses the split sections below |
+| `assets/audio/music/race_intro.ogg` | Race music section | `derived` | Source interval 0-42 s of `race_theme.ogg`, 42 s orchestral intro | Shuffled playlist; Music/Master volume, 3 s runtime crossfades |
+| `assets/audio/music/race_carnival_a.ogg` | Race music section | `derived` | Source interval 45-159 s of `race_theme.ogg`, 114 s first carnival section | Same playlist |
+| `assets/audio/music/race_carnival_b.ogg` | Race music section | `derived` | Source interval 162-276 s of `race_theme.ogg`, 114 s second carnival section | Same playlist |
+| `assets/audio/music/race_reprise.ogg` | Race music section | `derived` | Source interval 279-300 s of `race_theme.ogg`, 21 s reprise | Same playlist |
+
+The split sections omit the source arrangement's already-mixed transitions at 42-45, 159-162, and 276-279 seconds so a shuffled section does not carry a fragment of its old neighbor. Each section is encoded as 48 kHz stereo Ogg Vorbis at quality 5 with no normalization or added fades. To reproduce a section with FFmpeg, substitute its start and duration from the table:
+
+```sh
+ffmpeg -ss 45 -i assets/audio/music/race_theme.ogg -t 114 -map_metadata -1 -c:a libvorbis -q:a 5 assets/audio/music/race_carnival_a.ogg
+```
