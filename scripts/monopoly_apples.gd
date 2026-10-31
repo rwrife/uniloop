@@ -6,6 +6,7 @@ signal squashed
 const POINTS := 100
 const RADIUS := 0.65
 const RED := Color("#ff1826")
+const LEAF_GREEN := Color("#4fae24")
 const SAUCE_COLORS := [Color("#ed1825"), Color("#ff5242"), Color("#ffc183")]
 
 var remaining: Array[Node3D] = []
@@ -21,12 +22,8 @@ func populate(course: CanyonCourse) -> void:
 	var confetti_paint := _paint(Color.WHITE)
 	confetti_paint.vertex_color_use_as_albedo = true
 	_confetti_mesh.material = confetti_paint
-	var fruit := SphereMesh.new()
-	fruit.radius = 0.48
-	fruit.height = 0.96
-	fruit.radial_segments = 12
-	fruit.rings = 6
-	fruit.material = _paint(RED)
+	var fruit := _apple_mesh()
+	var leaf_mesh := _leaf_mesh()
 	var stem := CylinderMesh.new()
 	stem.top_radius = 0.045
 	stem.bottom_radius = 0.065
@@ -50,20 +47,86 @@ func populate(course: CanyonCourse) -> void:
 					var apple := Node3D.new()
 					apple.name = "Apple%d" % remaining.size()
 					apple.position = sample.pos + sample.n * 0.50
-					for side in [-1.0, 1.0]:
-						var lobe := MeshInstance3D.new()
-						lobe.mesh = fruit
-						lobe.position.x = side * 0.19
-						lobe.scale = Vector3(1.0, 0.95, 0.95)
-						apple.add_child(lobe)
+					var body := MeshInstance3D.new()
+					body.name = "Fruit"
+					body.mesh = fruit
+					apple.add_child(body)
 					var stalk := MeshInstance3D.new()
+					stalk.name = "Stem"
 					stalk.mesh = stem
-					stalk.position = Vector3(0.0, 0.51, 0.0)
+					stalk.position = Vector3(0.0, 0.61, 0.0)
 					stalk.rotation.z = -0.25
 					apple.add_child(stalk)
+					var leaf := MeshInstance3D.new()
+					leaf.name = "Leaf"
+					leaf.mesh = leaf_mesh
+					leaf.position = Vector3(0.02, 0.66, 0.06)
+					apple.add_child(leaf)
 					add_child(apple)
 					remaining.append(apple)
 			distance += rng.randf_range(32.0, 62.0)
+
+
+func _apple_mesh() -> ArrayMesh:
+	# Radius/height profile: dimpled crown, full shoulders, and a slender tapered base.
+	var profile: Array[Vector2] = [
+		Vector2(0.0, 0.43), Vector2(0.18, 0.59), Vector2(0.35, 0.51),
+		Vector2(0.43, 0.29), Vector2(0.42, 0.02), Vector2(0.35, -0.26),
+		Vector2(0.23, -0.46), Vector2(0.08, -0.53), Vector2(0.0, -0.50),
+	]
+	var builder := SurfaceTool.new()
+	builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+	builder.set_smooth_group(0)
+	for ring in profile.size() - 1:
+		for side in 20:
+			var angle_a := side * TAU / 20.0
+			var angle_b := (side + 1) * TAU / 20.0
+			var radial_a := Vector3(cos(angle_a), 0, sin(angle_a)) * (1.0 + 0.035 * cos(angle_a * 5.0))
+			var radial_b := Vector3(cos(angle_b), 0, sin(angle_b)) * (1.0 + 0.035 * cos(angle_b * 5.0))
+			var upper := profile[ring]
+			var lower := profile[ring + 1]
+			var a := radial_a * upper.x + Vector3.UP * upper.y
+			var b := radial_b * upper.x + Vector3.UP * upper.y
+			var c := radial_a * lower.x + Vector3.UP * lower.y
+			var d := radial_b * lower.x + Vector3.UP * lower.y
+			var vertices: Array[Vector3] = []
+			if upper.x > 0.0:
+				vertices.append_array([a, c, b])
+			if lower.x > 0.0:
+				vertices.append_array([b, c, d])
+			for vertex in vertices:
+				var radial := Vector3(vertex.x, 0, vertex.z).normalized()
+				var shade := 0.72 + 0.28 * maxf(0.0, radial.dot(Vector3(-0.6, 0, 0.8)))
+				builder.set_color(Color(shade, shade, shade))
+				builder.add_vertex(vertex)
+	builder.generate_normals()
+	builder.index()
+	var mesh := builder.commit()
+	var material := _paint(RED)
+	material.vertex_color_use_as_albedo = true
+	mesh.surface_set_material(0, material)
+	return mesh
+
+
+func _leaf_mesh() -> ArrayMesh:
+	var outline: Array[Vector3] = [
+		Vector3.ZERO, Vector3(0.16, 0.17, 0), Vector3(0.38, 0.22, 0),
+		Vector3(0.60, 0.17, 0), Vector3(0.47, -0.02, 0), Vector3(0.22, -0.07, 0),
+	]
+	var builder := SurfaceTool.new()
+	builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in outline.size():
+		for vertex in [Vector3(0.29, 0.08, 0.05), outline[i], outline[(i + 1) % outline.size()]]:
+			var shade := 1.0 if vertex.y >= 0.08 else 0.7
+			builder.set_color(Color(shade, shade, shade))
+			builder.add_vertex(vertex)
+	builder.generate_normals()
+	var mesh := builder.commit()
+	var material := _paint(LEAF_GREEN)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.vertex_color_use_as_albedo = true
+	mesh.surface_set_material(0, material)
+	return mesh
 
 
 func squash_between(from: Vector3, to: Vector3, wheel_radius: float) -> void:

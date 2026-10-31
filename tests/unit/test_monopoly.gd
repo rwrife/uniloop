@@ -74,7 +74,26 @@ func test_only_rails_and_backdrop_are_grayscale() -> void:
 	var gate: StandardMaterial3D = course.get_node("Checkpoint0").get_child(0).material_override
 	assert_eq(gate.albedo_color, Color(0.1, 0.85, 0.75), "flags retain original colors")
 	var apple: MeshInstance3D = course.apples.remaining[0].get_child(0)
-	assert_eq(apple.mesh.material.albedo_color, MonopolyApples.RED)
+	assert_eq(apple.mesh.surface_get_material(0).albedo_color, MonopolyApples.RED)
+
+
+func test_apples_have_slender_tapered_fruit_and_a_visible_green_leaf() -> void:
+	var apples := _course().apples
+	var apple := apples.remaining[0]
+	var fruit: MeshInstance3D = apple.get_node("Fruit")
+	var leaf: MeshInstance3D = apple.get_node("Leaf")
+	var stem: MeshInstance3D = apple.get_node("Stem")
+	var bounds := fruit.mesh.get_aabb()
+	assert_gt(bounds.size.y, bounds.size.x * 1.15, "fruit is taller than it is wide")
+	assert_lt(bounds.size.x, 1.0, "not the old wide, tomato-like paired spheres")
+	assert_eq(leaf.mesh.surface_get_material(0).albedo_color, MonopolyApples.LEAF_GREEN)
+	assert_gt(MonopolyApples.LEAF_GREEN.g, MonopolyApples.LEAF_GREEN.r)
+	assert_gt(leaf.mesh.get_aabb().size.x, 0.5, "leaf reads clearly at gameplay scale")
+	assert_gt(leaf.position.y, bounds.end.y, "leaf sits beside the crown's stem")
+	assert_gt(stem.position.y, 0.5)
+	assert_eq(leaf.mesh.surface_get_material(0).cull_mode, BaseMaterial3D.CULL_DISABLED)
+	assert_same(apples.remaining[1].get_node("Fruit").mesh, fruit.mesh, "fruit mesh is shared")
+	assert_same(apples.remaining[1].get_node("Leaf").mesh, leaf.mesh, "leaf mesh is shared")
 
 
 func test_apples_are_scattered_on_rideable_rail_and_clear_of_gates() -> void:
