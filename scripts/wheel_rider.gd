@@ -54,6 +54,8 @@ var corkscrewing := false
 var signature_falling := false
 var bind_time := 0.0
 var _signature_latched := false
+## Empty uses live input; race/replay supply identical quantized controls.
+var controls: Array = []
 
 func _ready() -> void:
 	assert(handling != null)
@@ -272,7 +274,7 @@ func _input(event: InputEvent) -> void:
 		_jump_input_consumed = false
 
 func _jump_just_pressed() -> bool:
-	return not _jump_input_consumed and Input.is_action_just_pressed(&"jump")
+	return bool(controls[9]) if not controls.is_empty() else not _jump_input_consumed and Input.is_action_just_pressed(&"jump")
 
 func _physics_process(delta: float) -> void:
 	if get_tree().paused or delta <= 0.0:
@@ -300,6 +302,20 @@ func _physics_process(delta: float) -> void:
 		_jump_input_consumed = false
 		_jump_released = false
 
+func _strength(action: StringName) -> float:
+	return float(controls[GhostRun.ACTIONS.find(action)]) / 255.0 if not controls.is_empty() else Input.get_action_strength(action)
+
+func _pressed(action: StringName) -> bool:
+	return _strength(action) > 0.5
+
+func _axis(negative: StringName, positive: StringName) -> float:
+	return _strength(positive) - _strength(negative)
+
+func step(frame: Array) -> void:
+	controls = frame
+	_physics_process(GhostRun.DT)
+	controls = []
+
 func _ground_step(delta: float) -> void:
 	var h := handling
 	var smp := course.sample(section, distance)
@@ -316,9 +332,9 @@ func _ground_step(delta: float) -> void:
 		speed -= h.gravity * h.slope_gravity * t.y * delta
 		var throttle := 1.0
 		if not cruise:
-			var axis := Input.get_axis(&"move_left", &"move_right")
+			var axis := _axis(&"move_left", &"move_right")
 			throttle = absf(axis) if drive_dir == 0 else axis * drive_dir
-		if not cruise and Input.is_action_pressed(&"brake"):
+		if not cruise and _pressed(&"brake"):
 			speed = move_toward(speed, 0.0, h.brake * delta)
 		elif throttle > 0.0:
 			# Only brake a real backward roll; from a standstill on a slope, pedal forward.
@@ -344,7 +360,7 @@ func _ground_step(delta: float) -> void:
 	var signature := course.signature
 	if (signature.kind == "corkscrew" and not _signature_latched and _active()
 			and speed > 0.0 and signature.enters(section, before, distance)
-			and Input.is_action_pressed(&"flip_back") and not _jump_just_pressed()):
+			and _pressed(&"flip_back") and not _jump_just_pressed()):
 		_signature_latched = true
 		corkscrewing = true
 		_place_corkscrew()
@@ -357,7 +373,7 @@ func _ground_step(delta: float) -> void:
 		var sec: CanyonCourse.Section = course.sections[section]
 		if distance > sec.length:
 			var next := sec.next
-			if sec.fork >= 0 and not cruise and Input.is_action_pressed(&"flip_back"):
+			if sec.fork >= 0 and not cruise and _pressed(&"flip_back"):
 				next = sec.fork
 			if next < 0:
 				var lip := course.sample(section, sec.length)
@@ -422,16 +438,16 @@ func _air_step(delta: float) -> void:
 	velocity.z = 0.0
 	speed = Vector2(velocity.x, velocity.y).length() * signf(speed if speed != 0.0 else 1.0)
 	if _active():
-		var flip := Input.get_axis(&"roll_forward", &"flip_back")
-		var turn := Input.get_axis(&"move_left", &"move_right")
-		var roll := Input.get_axis(&"zflip_left", &"zflip_right")
+		var flip := _axis(&"roll_forward", &"flip_back")
+		var turn := _axis(&"move_left", &"move_right")
+		var roll := _axis(&"zflip_left", &"zflip_right")
 		pitch += flip * h.spin_rate * delta
 		flip_air += flip * h.spin_rate * delta
 		twist += turn * h.twist_rate * delta
 		twist_air += turn * h.twist_rate * delta
 		zflip += roll * h.zflip_rate * delta
 		zflip_air += roll * h.zflip_rate * delta
-		if Input.is_action_pressed(&"tabletop"):
+		if _pressed(&"tabletop"):
 			tabletop = move_toward(tabletop, 1.0, 6.0 * delta)
 			if tabletop > 0.9:
 				tabletop_time += delta
@@ -488,7 +504,7 @@ func _apply_signature_contact(hit: Dictionary) -> void:
 			_leave_ground(Vector3(horizontal, CourseSignature.TRAMPOLINE_SPEED, 0))
 		"flux_gate":
 			signature.spend()
-			if grounded and Input.is_action_pressed(&"brake"):
+			if grounded and _pressed(&"brake"):
 				speed = minf(h.max_speed * 1.5, h.max_speed * h.boost_cap)
 				boost_time = 1.0
 				boosted.emit()
@@ -530,8 +546,8 @@ func _place_corkscrew() -> void:
 
 func _corkscrew_step(delta: float) -> void:
 	var signature := course.signature
-	var pump := maxf(Input.get_action_strength(&"flip_back"), Input.get_action_strength(&"roll_forward"))
-	if Input.is_action_pressed(&"brake"):
+	var pump := maxf(_strength(&"flip_back"), _strength(&"roll_forward"))
+	if _pressed(&"brake"):
 		speed = move_toward(speed, 0.0, handling.brake * delta)
 	elif pump > 0.0:
 		speed = move_toward(speed, CourseSignature.CORK_MAX_SPEED, CourseSignature.CORK_PUMP * pump * delta)

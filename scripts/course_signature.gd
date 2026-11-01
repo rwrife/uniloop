@@ -30,6 +30,9 @@ func populate(course: CanyonCourse, spot: Dictionary) -> void:
 	_solid.name = "Mechanism"
 	add_child(_solid)
 	match kind:
+		"precision":
+			for z in [-2.0, 2.0]:
+				_box(Vector3(0.3, 3.0, 0.3), Vector3(0, 1.5, z), Color("#7df9ff"))
 		"trampoline":
 			volume = AABB(Vector3(-2.5, 0.0, -1.6), Vector3(5.0, 0.16, 3.2))
 			_box(volume.size, volume.get_center(), Color("#ffba32"))
@@ -67,7 +70,7 @@ func populate(course: CanyonCourse, spot: Dictionary) -> void:
 			_box(Vector3(2.1, 0.16, 2.5), Vector3(0, 0.8, 0), Color("#ece7d9"))
 		_:
 			assert(false, "Unknown course signature: %s" % kind)
-	if kind != "corkscrew":
+	if kind not in ["corkscrew", "precision"]:
 		_add_collider()
 	var sign := Label3D.new()
 	sign.name = "SignatureSign"
@@ -217,7 +220,7 @@ func clear_of_contact(where: Vector3, radius: float) -> bool:
 
 
 func sweep(from: Vector3, to: Vector3, radius: float) -> Dictionary:
-	if spent or kind == "corkscrew":
+	if spent or kind in ["corkscrew", "precision"]:
 		return {}
 	var a := to_local(from)
 	var b := to_local(to)

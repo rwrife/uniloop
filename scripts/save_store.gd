@@ -95,13 +95,15 @@ static func to_json(save: Dictionary) -> String:
 	return JSON.stringify(out, "\t")
 
 
-static func record_best(save: Dictionary, course_id: String, time_ms: int, medal: String, score: int) -> void:
+static func record_best(save: Dictionary, course_id: String, time_ms: int, medal: String, score: int, ghost: Dictionary = {}) -> void:
 	assert(course_id != "" and time_ms >= 0 and score >= 0 and medal in MEDALS)
 	var records: Dictionary = save.records
 	var prior: Dictionary = records.get(course_id, {})
 	var best_medal := _better_medal(str(prior.get("medal", "none")), medal)
 	if prior.is_empty() or time_ms < int(prior.best_ms):
 		records[course_id] = {"best_ms": time_ms, "medal": best_medal}
+		if GhostRun.valid(ghost, course_id, time_ms):
+			records[course_id].ghost = ghost.duplicate(true)
 	else:
 		prior.medal = best_medal
 		records[course_id] = prior
@@ -109,6 +111,10 @@ static func record_best(save: Dictionary, course_id: String, time_ms: int, medal
 
 
 static func save_to_path(save: Dictionary, path: String) -> bool:
+	# Loading falls back to defaults for playability. Never let that fallback
+	# silently overwrite an unreadable/newer save when a race or setting saves.
+	if FileAccess.file_exists(path) and not load_from_path(path).ok:
+		return false
 	var tmp := path + ".tmp"
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
@@ -182,6 +188,11 @@ static func _validate(save: Dictionary) -> Dictionary:
 		rec.best_ms = best_ms
 		if rec.get("medal") not in MEDALS:
 			return _fail("%s has an unknown medal" % course_id)
+		# Replay is optional: damaged/obsolete inputs must never erase records.
+		if rec.has("ghost") and not GhostRun.valid(rec.ghost, course_id, best_ms):
+			rec.erase("ghost")
+		elif rec.has("ghost"):
+			rec.ghost = GhostRun.normalized(rec.ghost)
 	return {"ok": true, "error": "", "save": save}
 
 
