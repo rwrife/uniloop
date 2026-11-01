@@ -59,7 +59,13 @@ static func valid(raw: Variant, course_id: String, best_ms: int) -> bool:
 	if typeof(raw) != TYPE_DICTIONARY:
 		return false
 	var data: Dictionary = raw
-	if data.get("revision") != REVISION or data.get("course") != course_id or data.get("hz") != HZ or data.get("time_ms") != best_ms:
+	for key in ["revision", "hz", "time_ms"]:
+		var value: Variant = data.get(key)
+		if typeof(value) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(value)) or floorf(float(value)) != float(value):
+			return false
+	if typeof(data.get("course")) != TYPE_STRING:
+		return false
+	if data.revision != REVISION or data.course != course_id or data.hz != HZ or data.time_ms != best_ms:
 		return false
 	if not RaceSetup.TRACKS.any(func(t: Dictionary) -> bool: return t.id == course_id):
 		return false

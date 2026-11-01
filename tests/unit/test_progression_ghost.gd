@@ -120,6 +120,7 @@ func test_bad_optional_ghost_drops_without_losing_records_settings_or_import_fie
 	save["bindings"] = {"jump": 32}
 	var mutations: Array = [
 		{"course": "neon_night"}, {"revision": 0}, {"hz": 30}, {"time_ms": 51},
+		{"revision": "1"}, {"course": []}, {"hz": {}}, {"time_ms": true},
 		{"checksum": "bad"}, {"frames": [[0]]}, {"frames": "bad"},
 		{"frames": [[0, 256, 0, 0, 0, 0, 0, 0, 0, 0, -2]]},
 		{"frames": [[0, 0, 0, 0, 0, 0, 0, 0, 0, 2, -2]]},
