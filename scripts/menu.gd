@@ -469,9 +469,13 @@ func _build_track_picker() -> void:
 		blurb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(blurb)
 		var best := UniloopUI.chunky_label(_record_text(t.id), int(22 * s), Color("7df9ff"))
+		if not RaceSetup.is_unlocked(save, t.id):
+			best.text = RaceSetup.unlock_hint(t.id)
+			best.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		best.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		best.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(best)
+		card.tooltip_text = RaceSetup.unlock_hint(t.id) if not RaceSetup.is_unlocked(save, t.id) else "Race your best input ghost"
 		card.pressed.connect(_on_track_picked.bind(i))
 		tracks.add_child(card)
 	var navigation := HBoxContainer.new()
@@ -519,7 +523,7 @@ func _record_text(track_id: String) -> String:
 	var record: Dictionary = save.records.get(track_id, {})
 	if record.is_empty():
 		return "NO TIME YET"
-	return "BEST %s  %s" % [_format_time(int(record.best_ms)), String(record.get("medal", "none")).to_upper()]
+	return "BEST %s  %s" % [_format_time(int(record.best_ms)), String(record.get("medal", "none")).to_upper()] + ("  GHOST" if record.has("ghost") else "")
 
 
 func _format_time(ms: int) -> String:
@@ -527,6 +531,8 @@ func _format_time(ms: int) -> String:
 
 
 func _on_track_picked(index: int) -> void:
+	if index < 0 or index >= RaceSetup.TRACKS.size() or not RaceSetup.is_unlocked(save, RaceSetup.TRACKS[index].id):
+		return
 	RaceSetup.track_id = RaceSetup.TRACKS[index].id
 	if auto_launch:
 		get_tree().change_scene_to_file(PRACTICE_SCENE)
@@ -673,6 +679,8 @@ func _build_help() -> void:
 		"NEON SIGNATURE - FLUX GATE: Hold %s (touch: Brake) through the glowing block to turn its charge into a speed burst. An unbraked hit drains 75%% of speed and clears your boost. Hop over to avoid it." % UniloopUI.prompt(&"brake", current_device),
 		"GOO SIGNATURE - BINDING BUBBLE: Hop over the striped slime sphere, or it holds you still for 0.8 seconds before popping and releasing you at goo crawl speed.",
 		"MONOPOLY SIGNATURE - QUOTA CRATE: Smash the strapped crate at a cost of 45% speed, or hop over to keep momentum. Red apples remain separate, once-per-race 100-point bonuses.",
+		"ROOFTOP GAPS: Brake to line up short landing rails; the upper fork adds a boosted gap route. Earn bronze medals on two courses to unlock Rooftop Precision. The original five courses stay open.",
+		"BEST GHOST: Your fastest recorded run replays beside you from saved inputs. Countdown and pause freeze it; falls replay with the same checkpoint and time penalty. A new best without replay data clears the old ghost.",
 		"SIGNATURE RECOVERY: The gate, bubble and crate clear after one hit per race, even across checkpoint resets. Springs and corkscrews can be retried. Pause freezes every mechanic; restart rebuilds the course.",
 		"CONTROLS:",
 		"  Ride left / right:  %s / %s (in the air: twist)" % [UniloopUI.prompt(&"move_left", current_device), UniloopUI.prompt(&"move_right", current_device)],

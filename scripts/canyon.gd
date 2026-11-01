@@ -8,7 +8,7 @@ extends Node3D
 
 enum { NORMAL, TURN, SHORTCUT, HAZARD, GOO }
 ## Stripe colour pairs per kind: blue/green normal, red/blue direction shift,
-## yellow (reserved; fork routes are deliberately unmarked), red/yellow pitfall
+## yellow (reserved; fork rails are not colour-coded), red/yellow pitfall
 ## or goo hazard.
 const KIND_COLORS := [
 	[Color(0.1, 0.3, 0.92), Color(0.08, 0.72, 0.36)],
@@ -140,6 +140,8 @@ class Section:
 
 ## Which RaceSetup track to build; set before adding the course to the tree.
 var track_id := RaceSetup.DEFAULT_TRACK
+## Replay needs analytic rail/contact state, without another rendered course.
+var simulation_only := false
 var reduced_motion := false
 var high_contrast := false
 var track: Dictionary
@@ -195,29 +197,30 @@ func _ready() -> void:
 		_resolve(pad)
 	_resolve(_signature_spot)
 	_index_landing()
-	_build_rail()
-	_build_collision()
-	_build_backdrop()
-	for i in gates.size():
-		var arrow := "▶" if gates[i].t.x > 0.0 else "◀"
-		var text := ("%d %s" % [i + 1, arrow]) if arrow == "▶" else ("%s %d" % [arrow, i + 1])
-		_add_gate(gates[i], "Checkpoint%d" % i, text, Color(0.1, 0.85, 0.75))
-	_add_gate(finish, "Finish", "FINISH", Color(1.0, 0.8, 0.15))
-	_add_gate(start_spot, "Start", "", Color(0.35, 0.65, 1.0))
-	for pad in boosts:
-		_add_boost_pad(pad)
-	for fork in forks:
-		_add_junction_marker(fork.split)
+	if not simulation_only:
+		_build_rail()
+		_build_collision()
+		_build_backdrop()
+		for i in gates.size():
+			var arrow := "▶" if gates[i].t.x > 0.0 else "◀"
+			var text := ("%d %s" % [i + 1, arrow]) if arrow == "▶" else ("%s %d" % [arrow, i + 1])
+			_add_gate(gates[i], "Checkpoint%d" % i, text, Color(0.1, 0.85, 0.75))
+		_add_gate(finish, "Finish", "FINISH", Color(1.0, 0.8, 0.15))
+		_add_gate(start_spot, "Start", "", Color(0.35, 0.65, 1.0))
+		for pad in boosts:
+			_add_boost_pad(pad)
+		for fork in forks:
+			_add_junction_marker(fork.split)
 	signature = SIGNATURE.new()
 	signature.name = "CourseSignature"
 	add_child(signature)
 	signature.populate(self, _signature_spot)
-	if course_id == "the_monopoly":
+	if course_id == "the_monopoly" and not simulation_only:
 		apples = APPLES.new()
 		apples.name = "Apples"
 		add_child(apples)
 		apples.populate(self)
-	set_process(course_id == "neon_night" and not reduced_motion)
+	set_process(course_id == "neon_night" and not reduced_motion and not simulation_only)
 
 func _process(delta: float) -> void:
 	_neon_time += delta
@@ -247,6 +250,8 @@ func _layout() -> void:
 				_leg_s()
 			"G":
 				_leg_g()
+			"P", "Q":
+				_leg_precision(kind == "P")
 			"FINAL":
 				_leg_final()
 				continue
@@ -312,7 +317,29 @@ func _leg_g() -> void:
 	_goo_pit()
 	_hill(30.0, 4.0)
 
+func _leg_precision(with_fork: bool) -> void:
+	_line(25.0)
+	_gate()
+	_hill(35.0, 7.0)
+	_jump(10.0, 2.0, 18.0, -1.0)
+	_line(18.0)
+	_jump(8.0, 1.5, 16.0, -1.0)
+	if with_fork:
+		_fork()
+	else:
+		_line(22.0)
+		_jump(10.0, 2.0, 20.0, -2.0)
+	_hill(30.0, 3.0)
+
 func _leg_final() -> void:
+	if course_id == "rooftop_precision":
+		_line(25.0)
+		_gate()
+		_jump(10.0, 2.0, 18.0, -1.0)
+		_line(40.0)
+		finish = _spot(0.0)
+		_line(160.0)
+		return
 	_line(25.0)
 	_gate()
 	_rollers()
@@ -405,14 +432,14 @@ func _jump(kick_dx: float, kick_dy: float, gap_dx: float, gap_dy: float) -> void
 	_begin(landing)
 	_line(20.0)
 
-## Splits into two unmarked routes of similar length with different obstacles.
+## Splits into two routes of similar length with different obstacles.
 ## The rail visibly forks at a Y-junction: the upper branch climbs away behind,
 ## the lower branch dips in front. Hold Up at the junction for the upper
 ## branch; Down (or nothing) keeps you low. Both routes rejoin at the merge.
 func _fork() -> void:
 	var recipes := [["goo_rollers", "climb_gaps"], ["loop_jump", "rollers_jump"], ["rollers_jump", "climb_goo"], ["double_jump", "goo_boost"]]
 	var index := forks.size()
-	var recipe: Array = recipes[index % recipes.size()]
+	var recipe: Array = ["rollers_jump", "climb_gaps"] if course_id == "rooftop_precision" else recipes[index % recipes.size()]
 	var from := _sec_index
 	var split := _pen
 	var layer := _zt
@@ -432,7 +459,7 @@ func _fork() -> void:
 	var rest := _begin(merge, routes[0])
 	for route in routes:
 		sections[route].next = rest
-	forks.append({"split": split, "merge": merge, "routes": routes, "junction": from})
+	forks.append({"split": split, "merge": merge, "routes": routes, "junction": from, "choices": recipe.duplicate()})
 	_line(10.0)
 
 func _route(id: String) -> void:
@@ -988,6 +1015,20 @@ func _build_backdrop() -> void:
 	backdrop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	backdrop.position = Vector3(bounds.get_center().x, bounds.get_center().y, BACK_Z - 35.0)
 	add_child(backdrop)
+	if course_id == "rooftop_precision":
+		var skyline := Node3D.new()
+		skyline.name = "Skyline"
+		add_child(skyline)
+		for i in 24:
+			var tower := MeshInstance3D.new()
+			var box := BoxMesh.new()
+			var height := 35.0 + float((i * 37) % 85)
+			box.size = Vector3(24.0 + float(i % 3) * 8.0, height, 12.0)
+			tower.mesh = box
+			tower.material_override = _paint(Color("#29364d").lightened(float(i % 3) * 0.05))
+			tower.position = Vector3(bounds.position.x + bounds.size.x * i / 23.0, height * 0.5 - 50.0, BACK_Z - 18.0)
+			tower.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			skyline.add_child(tower)
 
 func _add_gate(spot: Dictionary, node_name: String, text: String, color: Color) -> Node3D:
 	var gate := Node3D.new()
@@ -1018,8 +1059,8 @@ func _add_gate(spot: Dictionary, node_name: String, text: String, color: Color) 
 func _add_junction_marker(at: Vector3) -> void:
 	var label := Label3D.new()
 	label.name = "Junction"
-	label.text = "▲\n▼"
-	label.font_size = 72
+	label.text = "▲ UP: STUNT ROUTE\n▼ DEFAULT ROUTE"
+	label.font_size = 38
 	label.pixel_size = 0.012
 	label.outline_size = 16
 	label.line_spacing = -18.0

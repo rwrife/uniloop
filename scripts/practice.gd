@@ -22,7 +22,9 @@ var tricks_landed := 0
 var best_combo := 0
 var crashes := 0
 var finish_stats: Dictionary = {}
-var _milliseconds := 0.0
+var _race_ticks := 0
+var capture := GhostRun.new()
+var ghost: GhostReplay
 var _last_gate := -1
 var _hud_score := 0
 var _shown_score := 0.0
@@ -176,6 +178,7 @@ func _ready() -> void:
 	rider.course = course
 	rider.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(rider)
+	rider.set_physics_process(false)
 	($Environment as WorldEnvironment).environment.background_color = course.track.sky[0]
 	rider.landed.connect(_on_landed)
 	rider.boosted.connect(_on_boosted)
@@ -186,6 +189,12 @@ func _ready() -> void:
 	var spot := course.spawn(-1)
 	rider.place_on(spot.sec, spot.s)
 	_last_pos = rider.global_position
+	var prior_record: Dictionary = save.records.get(course.course_id, {})
+	if GhostRun.valid(prior_record.get("ghost"), course.course_id, int(prior_record.get("best_ms", -1))):
+		ghost = GhostReplay.new()
+		ghost.name = "BestGhost"
+		add_child(ghost)
+		ghost.setup(prior_record.ghost)
 	_snap_camera()
 	$Hud/Root.theme = UniloopUI.create_theme(SaveStore.get_settings(save))
 	pause_button.pressed.connect(_set_paused.bind(true))
@@ -249,6 +258,7 @@ func _countdown_beat(text: String, color: Color, go: bool) -> void:
 	_shake(0.35 if go else 0.15)
 	_sparks(color, 60 if go else 20)
 	if go:
+		rider.consume_jump_input()
 		racing = true
 		rider.process_mode = Node.PROCESS_MODE_PAUSABLE
 		pop.chain().tween_interval(0.35)
@@ -260,17 +270,23 @@ func _countdown_beat(text: String, color: Color, go: bool) -> void:
 		beat.tween_property(countdown_label, "scale", Vector2(0.85, 0.85), 0.45).set_trans(Tween.TRANS_SINE)
 
 func _physics_process(delta: float) -> void:
-	if get_tree().paused:
+	if get_tree().paused or delta <= 0.0:
 		return
+	if racing and not rules.finished:
+		var frame := GhostRun.capture(rider)
+		capture.append(frame)
+		rider.step(frame)
+		if ghost != null:
+			ghost.advance()
+	elif rules.finished:
+		rider._physics_process(GhostRun.DT)
 	var here := rider.global_position
 	_rider_vx = lerpf(_rider_vx, (here.x - _last_pos.x) / maxf(delta, 0.0001), minf(1.0, delta * 6.0))
 	if rules.finished or not racing:
 		_last_pos = here
 		return
-	_milliseconds += delta * 1000.0
-	var ms := int(_milliseconds)
-	rules.tick(ms)
-	_milliseconds -= ms
+	_race_ticks += 1
+	rules.elapsed_ms = int(_race_ticks * 1000.0 / GhostRun.HZ) + rules.resets * RaceRules.RESET_PENALTY_MS
 	if course.apples != null:
 		course.apples.squash_between(_last_pos, here, rider.handling.wheel_radius)
 	var next := rules.next_checkpoint
@@ -280,7 +296,7 @@ func _physics_process(delta: float) -> void:
 	elif course.crossed(course.finish, _last_pos, here):
 		_on_finish(rider)
 	_last_pos = here
-	if course.out_of_bounds(here) or (not rider.grounded and rider.air_time > rider.handling.air_timeout):
+	if not rules.finished and (course.out_of_bounds(here) or (not rider.grounded and rider.air_time > rider.handling.air_timeout)):
 		_reset()
 
 func _process(delta: float) -> void:
@@ -416,7 +432,7 @@ func _on_finish(body: Node3D) -> void:
 	var medal := RaceRules.medal(rules.elapsed_ms, course.medals)
 	var prior: Dictionary = save.records.get(course.course_id, {})
 	_prior_best = int(prior.get("best_ms", -1))
-	SaveStore.record_best(save, course.course_id, rules.elapsed_ms, medal, rules.score)
+	SaveStore.record_best(save, course.course_id, rules.elapsed_ms, medal, rules.score, capture.finish(course.course_id, rules.elapsed_ms))
 	finish_stats = {
 		"time_ms": rules.elapsed_ms,
 		"medal": medal,
@@ -439,6 +455,9 @@ func _on_apple_squashed() -> void:
 	_show_popup("CORPORATE GREED SQUASHED!\n+%d" % MonopolyApples.POINTS, MonopolyApples.RED)
 
 func _reset() -> void:
+	if rules.finished or not racing:
+		return
+	capture.reset_at(_last_gate)
 	audio.play_sfx("crash")
 	var spot := course.spawn(_last_gate)
 	rider.place_on(spot.sec, spot.s)

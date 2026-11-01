@@ -99,6 +99,8 @@ func test_all_five_courses_have_one_exclusive_supported_signature() -> void:
 	}
 	var unique := {}
 	for track in RaceSetup.TRACKS:
+		if not expected.has(track.id):
+			continue
 		var course := _course(track.id)
 		var signature := course.signature
 		assert_false(signature.spent, "new race restores the signature")
@@ -319,7 +321,9 @@ func test_pause_zero_delta_and_reset_are_safe_for_every_mechanic() -> void:
 	for track in RaceSetup.TRACKS:
 		var wheel := _wheel(_course(track.id))
 		_approach(wheel)
-		if track.id == "canyon_climb":
+		if track.id == "rooftop_precision":
+			wheel._physics_process(DT) # signposts are non-contact
+		elif track.id == "canyon_climb":
 			_on_coil(wheel, 18.0)
 		else:
 			_hit(wheel)

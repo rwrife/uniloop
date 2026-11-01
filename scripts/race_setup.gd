@@ -69,6 +69,16 @@ const TRACKS: Array[Dictionary] = [
 		"medals": {"gold": 145000, "silver": 180000, "bronze": 240000},
 		"sky": [Color(0.32, 0.32, 0.32), Color(0.40, 0.40, 0.40), Color(0.24, 0.24, 0.24)],
 	},
+	{
+		"id": "rooftop_precision", "title": "Rooftop Precision",
+		"blurb": "Skyline gaps and short landings. Brake to line up; hold Up at forks for boosted stunt gaps.",
+		"signature": {"id": "precision", "name": "ROOFTOP GAPS", "hint": "Brake to line up short landings.\nUp at forks: boosted stunt route."},
+		"length": 2, "speed": 1, "difficulty": 3,
+		"plan": [["P", "uturn"], ["Q", "launch"], ["P", "uturn"], ["Q", "launch"], ["FINAL", ""]],
+		"bumps": [],
+		"medals": {"gold": 125000, "silver": 160000, "bronze": 215000},
+		"sky": [Color(0.24, 0.32, 0.46), Color(0.40, 0.48, 0.60), Color(0.19, 0.23, 0.34)],
+	},
 ]
 const DEFAULT_TRACK := "canyon_climb"
 
@@ -86,3 +96,21 @@ static func track(id: String = "") -> Dictionary:
 
 static func uni() -> Dictionary:
 	return UNIS[clampi(uni_index, 0, UNIS.size() - 1)]
+
+
+## The shipped five courses remain open for every user, including users whose
+## old saves have no records. New challenge courses use earned medals.
+static func is_unlocked(save: Dictionary, id: String) -> bool:
+	if not TRACKS.any(func(t: Dictionary) -> bool: return t.id == id):
+		return false
+	if id != "rooftop_precision" or save.get("records", {}).has(id):
+		return true
+	var count := 0
+	for t in TRACKS:
+		if t.id != id and save.get("records", {}).get(t.id, {}).get("medal", "none") in ["bronze", "silver", "gold"]:
+			count += 1
+	return count >= 2
+
+
+static func unlock_hint(id: String) -> String:
+	return "LOCKED: earn bronze on any 2 courses" if id == "rooftop_precision" else ""
