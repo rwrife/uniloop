@@ -89,6 +89,12 @@ The game runs offline without accounts, ads, analytics, telemetry, or live leade
 
 ## Build from source
 
+Source builds on Windows and macOS start in a centered, resizable 16:9 window. Its
+width or height (whichever limits the fit) uses 75% of the current monitor's usable
+area, excluding the taskbar, menu bar, and Dock. Returning to the title menu leaves
+your window size unchanged. Mobile, headless, fullscreen, and embedded editor runs
+retain their existing sizing.
+
 Install **Godot 4.7.2-stable** and its matching export templates from the [official release](https://github.com/godotengine/godot-builds/releases/tag/4.7.2-stable). Install [Git LFS](https://git-lfs.com/) before cloning, then fetch the art assets:
 
 ```sh
