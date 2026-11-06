@@ -71,6 +71,7 @@ Multiplayer is a disabled “coming soon” menu item. Android and iOS are devel
 | Back | Escape | Right face button (B) |
 
 Prompts adapt to keyboard, Xbox, PlayStation, and Nintendo input. Keyboard gameplay bindings can be changed in Options.
+Start / Menu (or Back / View) toggles pause from any controller, including controllers assigned a nonzero device ID after reconnecting.
 
 Options has independent **Music Volume** and **Sound Effects Volume** sliders alongside Master Volume; changes apply immediately and are saved. New saves default music to 80% and effects to 50%. Gameplay effects are mixed 6 dB quieter, including for existing saves, without changing music loudness. Menu navigation plays a soft tick and selection plays a short beep, including while paused; both follow the Sound Effects and Master settings. D-pad/left-stick navigation and A confirm work in title, Options, pause, and results menus.
 

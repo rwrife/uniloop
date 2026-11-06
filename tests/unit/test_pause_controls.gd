@@ -15,6 +15,14 @@ func _key(code: Key, pressed: bool) -> void:
 	Input.parse_input_event(event)
 	Input.flush_buffered_events()
 
+func _pad(button: JoyButton, device: int, pressed: bool) -> void:
+	var event := InputEventJoypadButton.new()
+	event.device = device
+	event.button_index = button
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
+
 func after_each() -> void:
 	get_tree().paused = false
 	for code in [KEY_SPACE, KEY_ESCAPE]:
@@ -57,6 +65,22 @@ func test_escape_can_pause_resume_and_leave_space_for_jumping() -> void:
 	_key(KEY_SPACE, false)
 	assert_false(practice.pause_panel.visible, "explicit resume also releases menu focus")
 	assert_false(get_tree().paused)
+
+func test_menu_button_pauses_and_resumes_from_any_controller() -> void:
+	var practice := _practice()
+	await get_tree().process_frame
+	for device in [0, 1, 3]:
+		for button in [JOY_BUTTON_START, JOY_BUTTON_BACK]:
+			_pad(button, device, true)
+			assert_true(practice.pause_panel.visible, "controller %d button %d opens pause" % [device, button])
+			assert_true(get_tree().paused)
+			_pad(button, device, false)
+			assert_true(practice.pause_panel.visible, "release does not toggle pause")
+			_pad(button, device, true)
+			_pad(button, device, false)
+			assert_false(practice.pause_panel.visible, "controller %d button %d resumes" % [device, button])
+			assert_false(get_tree().paused)
+			assert_null(get_viewport().gui_get_focus_owner())
 
 func test_resume_releases_pause_button_focus_but_pointer_pause_still_works() -> void:
 	var practice := _practice()

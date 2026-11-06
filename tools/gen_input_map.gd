@@ -103,6 +103,8 @@ func _initialize() -> void:
 			events.append(_serialize(key))
 		for button_name: String in spec["pad_buttons"]:
 			var pad := InputEventJoypadButton.new()
+			if action == "pause":
+				pad.device = -1
 			pad.button_index = BUTTONS[button_name]
 			events.append(_serialize(pad))
 		for axis: Array in spec["pad_axes"]:
