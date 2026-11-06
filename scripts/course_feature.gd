@@ -23,6 +23,8 @@ const UPDRAFT_HEIGHT := 10.0
 const UPDRAFT_LIFT := 70.0
 const UPDRAFT_MAX := 15.0
 const UPDRAFT_KICK := 6.0
+const FAN_RADIUS := 1.3
+const FAN_DROP := 2.6
 const LENGTHS := {"bounce": BOUNCE_LENGTH, "spiral": CORK_LENGTH, "updraft": UPDRAFT_SPAN}
 
 var kind := ""
@@ -129,10 +131,7 @@ func _process(delta: float) -> void:
 			_pad.set_instance_transform(i, Transform3D(Basis.IDENTITY, Vector3(dir * x, _pad_y[i] - 0.2, 0)))
 	if _blades != null and _animate:
 		_blades.rotation.y = _clock * 14.0
-		for i in _streaks.size():
-			var rise := fposmod(_clock * 7.0 + i * 2.3, UPDRAFT_HEIGHT)
-			_streaks[i].position.y = rise
-			_streaks[i].scale = Vector3.ONE * (1.0 - rise / UPDRAFT_HEIGHT * 0.7)
+		_place_streaks()
 
 
 func _paint(color: Color, glow := 0.0, alpha := 1.0) -> StandardMaterial3D:
@@ -247,39 +246,45 @@ func _build_spiral() -> void:
 
 func _build_updraft() -> void:
 	var center := Vector3(dir * length * 0.5, 0, 0)
-	var housing := CylinderMesh.new()
-	housing.top_radius = 2.2
-	housing.bottom_radius = 2.4
-	housing.height = 0.8
-	housing.radial_segments = 20
-	_part(housing, center + Vector3(0, -1.4, 0), _paint(Color("#3b4250")))
+	var metal := _paint(Color("#3b4250"))
+	var hanger := BoxMesh.new()
+	hanger.size = Vector3(0.14, FAN_DROP - 0.5, 0.14)
+	for side in [-1.0, 1.0]:
+		_part(hanger, center + Vector3(side * FAN_RADIUS * 0.8, -0.5 - (FAN_DROP - 0.5) * 0.5, 0), metal)
+	var ring := TorusMesh.new()
+	ring.inner_radius = FAN_RADIUS - 0.12
+	ring.outer_radius = FAN_RADIUS + 0.06
+	ring.rings = 24
+	ring.ring_segments = 8
+	_part(ring, center + Vector3(0, -FAN_DROP, 0), metal).name = "Housing"
+	var hub := SphereMesh.new()
+	hub.radius = 0.25
+	hub.height = 0.4
+	_part(hub, center + Vector3(0, -FAN_DROP, 0), metal)
 	_blades = Node3D.new()
 	_blades.name = "Blades"
-	_blades.position = center + Vector3(0, -0.95, 0)
+	_blades.position = center + Vector3(0, -FAN_DROP, 0)
 	_visual.add_child(_blades)
 	var blade := BoxMesh.new()
-	blade.size = Vector3(4.0, 0.08, 0.6)
+	blade.size = Vector3(FAN_RADIUS * 0.9, 0.05, 0.42)
 	var steel := _paint(Color("#cfd8e3"))
-	for i in 3:
+	for i in 4:
 		var part := MeshInstance3D.new()
 		part.mesh = blade
 		part.material_override = steel
-		part.rotation.y = PI * i / 3.0
+		part.position = Vector3(cos(TAU * i / 4.0), 0, -sin(TAU * i / 4.0)) * FAN_RADIUS * 0.48
+		part.rotation = Vector3(0.35, TAU * i / 4.0, 0)
+		part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_blades.add_child(part)
-	var column := CylinderMesh.new()
-	column.top_radius = length * 0.5
-	column.bottom_radius = length * 0.4
-	column.height = UPDRAFT_HEIGHT
-	column.radial_segments = 24
-	column.cap_top = false
-	column.cap_bottom = false
-	_part(column, center + Vector3(0, UPDRAFT_HEIGHT * 0.5 - 1.0, 0), _paint(Color("#9ff3ff"), 0.4, 0.14)).name = "Column"
 	var streak := BoxMesh.new()
-	streak.size = Vector3(0.12, 1.4, 0.12)
-	var wind := _paint(Color("#e9fdff"), 1.0, 0.6)
-	for i in 6:
+	streak.size = Vector3(0.07, 1.6, 0.07)
+	var wind := _paint(Color("#e9fdff"), 1.2, 0.55)
+	for i in 14:
 		var holder := Node3D.new()
-		holder.position = center + Vector3((i - 2.5) * 1.6, i * 1.6, (i % 2) * 1.2 - 0.6)
+		holder.name = "Wind%d" % i
+		holder.set_meta("spread", (i % 7 - 3.0) / 3.0)
+		holder.set_meta("z", ((i * 5) % 3 - 1.0) * 0.5)
+		holder.set_meta("phase", i * 1.37)
 		var piece := MeshInstance3D.new()
 		piece.mesh = streak
 		piece.material_override = wind
@@ -287,3 +292,20 @@ func _build_updraft() -> void:
 		holder.add_child(piece)
 		_visual.add_child(holder)
 		_streaks.append(holder)
+	_place_streaks()
+
+
+## Wind streaks rise from the fan and fan out across the lift zone.
+func _place_streaks() -> void:
+	var center := Vector3(dir * length * 0.5, 0, 0)
+	var rise_span := UPDRAFT_HEIGHT + FAN_DROP
+	for holder in _streaks:
+		var rise := fposmod(_clock * 9.0 + float(holder.get_meta("phase")) * 2.1, rise_span)
+		var t := rise / rise_span
+		var spread: float = holder.get_meta("spread")
+		var sway := sin(_clock * 3.0 + float(holder.get_meta("phase"))) * 0.25 * t
+		holder.position = center + Vector3(
+				spread * (FAN_RADIUS * 0.7 + (length * 0.5 - FAN_RADIUS * 0.7) * t) + sway,
+				rise - FAN_DROP, float(holder.get_meta("z")) * (1.0 + t))
+		holder.scale = Vector3.ONE * (1.0 - t * 0.6)
+		holder.visible = t < 0.95

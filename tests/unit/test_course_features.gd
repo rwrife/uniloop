@@ -255,7 +255,11 @@ func test_jumping_onto_a_spiral_still_catches_the_rider() -> void:
 func test_updraft_lifts_a_rider_well_above_a_hop() -> void:
 	var course := _course("neon_night")
 	var fan := _first(course, "updraft")
-	assert_not_null(fan.get_node("Visual/Column"))
+	assert_null(fan.get_node_or_null("Visual/Column"), "no big wind tube")
+	var housing: MeshInstance3D = fan.get_node("Visual/Housing")
+	assert_lt(housing.position.y, -2.0, "fan hangs below the rail")
+	assert_lte((housing.mesh as TorusMesh).outer_radius, 1.5, "fan is small")
+	assert_gte(fan._streaks.size(), 10, "wind streaks show the updraft")
 	var wheel := _wheel(course)
 	_approach(wheel, fan)
 	var crashes := []
