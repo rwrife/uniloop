@@ -6,7 +6,8 @@ extends Node3D
 ## through the underside of the next leg. The track is a set of polyline
 ## sections the rider follows directly; landings are one-way (from above only).
 
-enum { NORMAL, TURN, SHORTCUT, HAZARD, GOO }
+## BOUNCE and SPIRAL stretches are drawn by their CourseFeature, not the rail.
+enum { NORMAL, TURN, SHORTCUT, HAZARD, GOO, BOUNCE, SPIRAL }
 ## Stripe colour pairs per kind: blue/green normal, red/blue direction shift,
 ## yellow (reserved; fork rails are not colour-coded), red/yellow pitfall
 ## or goo hazard.
@@ -28,7 +29,7 @@ const NEON_RAIL := preload("res://assets/shaders/neon_rail.gdshader")
 const NEON_BACKDROP := preload("res://assets/shaders/neon_backdrop.gdshader")
 const MONOPOLY_BACKDROP := preload("res://assets/shaders/monopoly_backdrop.gdshader")
 const APPLES := preload("res://scripts/monopoly_apples.gd")
-const SIGNATURE := preload("res://scripts/course_signature.gd")
+const FEATURE := preload("res://scripts/course_feature.gd")
 const MONOPOLY_KIND_COLORS := [
 	[Color(0.72, 0.72, 0.72), Color(0.54, 0.54, 0.54)],
 	[Color(0.82, 0.82, 0.82), Color(0.46, 0.46, 0.46)],
@@ -162,8 +163,8 @@ var uturns := 0
 var loops := 0
 var bounds := AABB()
 var apples: MonopolyApples
-var signature: CourseSignature
-var _signature_spot: Dictionary
+var features: Array[CourseFeature] = []
+var _feature_spots: Array[Dictionary] = []
 
 var _sec: Section
 var _sec_index := -1
@@ -195,7 +196,8 @@ func _ready() -> void:
 	_resolve(finish)
 	for pad in boosts:
 		_resolve(pad)
-	_resolve(_signature_spot)
+	for spot in _feature_spots:
+		_resolve(spot)
 	_index_landing()
 	if not simulation_only:
 		_build_rail()
@@ -209,12 +211,12 @@ func _ready() -> void:
 		_add_gate(start_spot, "Start", "", Color(0.35, 0.65, 1.0))
 		for pad in boosts:
 			_add_boost_pad(pad)
-		for fork in forks:
-			_add_junction_marker(fork.split)
-	signature = SIGNATURE.new()
-	signature.name = "CourseSignature"
-	add_child(signature)
-	signature.populate(self, _signature_spot)
+	for spot in _feature_spots:
+		var feature: CourseFeature = FEATURE.new()
+		feature.name = "Feature%d" % features.size()
+		add_child(feature)
+		feature.populate(spot, spot.kind, spot.dir, not simulation_only, not reduced_motion)
+		features.append(feature)
 	if course_id == "the_monopoly" and not simulation_only:
 		apples = APPLES.new()
 		apples.name = "Apples"
@@ -377,12 +379,34 @@ func _spot(ahead: float) -> Dictionary:
 
 func _gate() -> void:
 	gates.append(_spot(0.0))
-	if gates.size() == 1:
-		_line(20.0)
-		_signature_spot = _spot(0.0)
-		# A flat runway makes the contact learnable and leaves room for a full
-		# trampoline arc at the boost cap before any existing loop or fork.
-		_line(150.0 if course_id == "sunny_sprint" else 100.0)
+	_stunt()
+
+## Every checkpoint leads into the next stunt feature from the track's mix,
+## followed by enough flat rail to land a full bounce or updraft arc.
+func _stunt() -> void:
+	var mix: Array = track.features
+	var kind: String = mix[_feature_spots.size() % mix.size()]
+	_line(15.0)
+	var spot := _spot(0.0)
+	spot.kind = kind
+	spot.dir = _dir
+	_feature_spots.append(spot)
+	match kind:
+		"bounce":
+			_line(CourseFeature.BOUNCE_LENGTH, 0.0, BOUNCE)
+			_line(60.0)
+		"spiral":
+			_line(CourseFeature.CORK_LENGTH, 0.0, SPIRAL)
+			_line(15.0)
+		"updraft":
+			_line(CourseFeature.UPDRAFT_SPAN)
+			_line(55.0)
+
+func feature_at(index: int, s: float) -> CourseFeature:
+	for feature in features:
+		if feature.covers(index, s):
+			return feature
+	return null
 
 func _boost() -> void:
 	boosts.append(_spot(2.0))
@@ -811,6 +835,11 @@ func _build_rail() -> void:
 			var length := sec.cum[k + 1] - sec.cum[k]
 			var count := maxi(1, roundi(length / STRIPE_LENGTH))
 			var kind := sec.kinds[k]
+			if kind >= BOUNCE:
+				next_arrow = maxf(next_arrow, sec.cum[k + 1] + 3.0)
+				continue
+			if k > 0 and sec.kinds[k - 1] >= BOUNCE:
+				joints.append([Transform3D(Basis.IDENTITY, a - sec.normals[k] * RAIL_RADIUS), colors[kind][0]])
 			var axis := Basis(n, t * (length / count), n.cross(t).normalized())
 			for j in count:
 				var u := (j + 0.5) / count
@@ -1054,19 +1083,6 @@ func _add_gate(spot: Dictionary, node_name: String, text: String, color: Color) 
 		gate.add_child(label)
 	add_child(gate)
 	return gate
-
-## A neutral up/down sign just before a junction: hold Up or Down to pick.
-func _add_junction_marker(at: Vector3) -> void:
-	var label := Label3D.new()
-	label.name = "Junction"
-	label.text = "▲ UP: STUNT ROUTE\n▼ DEFAULT ROUTE"
-	label.font_size = 38
-	label.pixel_size = 0.012
-	label.outline_size = 16
-	label.line_spacing = -18.0
-	label.modulate = Color(1, 1, 1, 0.92)
-	add_child(label)
-	label.global_position = at + Vector3(0, 3.2, 0.6)
 
 func _add_boost_pad(pad: Dictionary) -> void:
 	var smp := sample(pad.sec, pad.s)
