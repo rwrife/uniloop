@@ -205,7 +205,7 @@ func test_full_best_run_saved_loaded_and_replayed_by_physics_in_live_race() -> v
 	if replay_race.ghost == null:
 		return
 	assert_ne(replay_race.ghost.course, replay_race.course)
-	assert_ne(replay_race.ghost.course.signature, replay_race.course.signature)
+	assert_ne(replay_race.ghost.course.features[0], replay_race.course.features[0])
 	var cursor: int = replay_race.ghost.cursor
 	replay_race.racing = false
 	replay_race._physics_process(GhostRun.DT)

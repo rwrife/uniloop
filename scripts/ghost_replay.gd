@@ -1,6 +1,6 @@
 class_name GhostReplay
 extends Node3D
-## A visible rival with private mutable signature state. No player signals,
+## A visible rival with private mutable stunt-feature state. No player signals,
 ## pickups, collision or records. The race advances it once per active tick.
 var rider: WheelRider
 var course: CanyonCourse

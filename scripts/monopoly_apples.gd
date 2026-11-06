@@ -37,14 +37,19 @@ func populate(course: CanyonCourse) -> void:
 		var distance := rng.randf_range(24.0, 48.0)
 		while distance < section.length - 12.0:
 			var sample := course.sample(index, distance)
-			if sample.kind == CanyonCourse.NORMAL and sample.landable and sample.n.y > 0.85 and absf(sample.t.y) < 0.3:
+			if sample.kind == CanyonCourse.NORMAL and sample.landable and sample.n.y > 0.85 and absf(sample.t.y) < 0.3 \
+					and course.sample(index, distance - 1.5).kind == CanyonCourse.NORMAL \
+					and course.sample(index, distance + 1.5).kind == CanyonCourse.NORMAL:
 				var clear := true
 				for gate in course.gates + [course.start_spot, course.finish]:
 					if sample.pos.distance_to(gate.pos) < 10.0:
 						clear = false
 						break
-				if sample.pos.distance_to(course.signature.anchor.pos) < 12.0:
-					clear = false
+				for feature in course.features:
+					var span: bool = feature.anchor.sec == index and distance > feature.anchor.s - 12.0 \
+							and distance < feature.anchor.s + feature.length + 12.0
+					if span or sample.pos.distance_to(feature.anchor.pos) < 12.0:
+						clear = false
 				if clear:
 					var apple := Node3D.new()
 					apple.name = "Apple%d" % remaining.size()

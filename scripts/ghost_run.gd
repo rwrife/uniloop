@@ -2,7 +2,7 @@ class_name GhostRun
 extends RefCounted
 ## Inputs, not transforms. Increment REVISION whenever course/handling simulation
 ## changes. Incompatible ghosts drop without discarding local times or medals.
-const REVISION := 1
+const REVISION := 2
 const HZ := 60
 const DT := 1.0 / HZ
 const MAX_FRAMES := HZ * 60 * 20
