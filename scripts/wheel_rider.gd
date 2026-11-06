@@ -388,8 +388,30 @@ func _ground_step(delta: float) -> void:
 		global_position -= smp.n * feature.sag(offset)
 		feature.press(offset)
 		hop = CourseFeature.BOUNCE_HOP
+	elif feature != null and feature.kind == "springboard":
+		var offset: float = distance - feature.anchor.s
+		global_position -= smp.n * feature.sag(offset)
+		feature.press(offset)
+		if feature.sweet_spot(offset):
+			hop = CourseFeature.SPRING_POP
+			if _active() and _jump_just_pressed():
+				feature.flick()
 	elif feature != null and feature.kind == "updraft" and recover_time <= 0.0:
 		_leave_ground(smp.seg_t * speed + Vector3.UP * CourseFeature.UPDRAFT_KICK)
+		return
+	elif feature != null and feature.kind == "catapult" and recover_time <= 0.0:
+		# Slime swallows the wheel to a crawl, then erupts and flings it out.
+		var offset: float = distance - feature.anchor.s
+		if offset < CourseFeature.CATAPULT_FIRE:
+			global_position -= smp.n * feature.sag(offset)
+			feature.press(offset)
+			speed = move_toward(speed, CourseFeature.CATAPULT_CRAWL, CourseFeature.CATAPULT_GRIP * delta)
+			return
+		speed = CourseFeature.CATAPULT_SPEED
+		boost_time = 1.0
+		boosted.emit()
+		feature.fling(offset)
+		_leave_ground(smp.seg_t * speed + Vector3.UP * CourseFeature.CATAPULT_KICK)
 		return
 	var grip: float = speed * speed * smp.curv + h.gravity * smp.n.y
 	if grip < 0.0 and absf(speed) > 1.0:

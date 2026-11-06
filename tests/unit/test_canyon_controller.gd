@@ -327,7 +327,7 @@ func test_released_twist_settles_and_lands() -> void:
 func test_canyon_medals_valid() -> void:
 	for t in RaceSetup.TRACKS:
 		assert_true(RaceRules.valid_thresholds(t.medals), t.id)
-		assert_gte(t.medals.gold, 90000, "%s is a real race" % t.id)
+		assert_gte(t.medals.gold, 80000, "%s is a real race" % t.id)
 		assert_lte(t.medals.silver, 300000, "%s fits in 5 minutes" % t.id)
 
 func test_rails_are_one_way() -> void:

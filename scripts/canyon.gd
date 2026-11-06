@@ -6,8 +6,8 @@ extends Node3D
 ## through the underside of the next leg. The track is a set of polyline
 ## sections the rider follows directly; landings are one-way (from above only).
 
-## BOUNCE and SPIRAL stretches are drawn by their CourseFeature, not the rail.
-enum { NORMAL, TURN, SHORTCUT, HAZARD, GOO, BOUNCE, SPIRAL }
+## BOUNCE and later stretches are drawn by their CourseFeature, not the rail.
+enum { NORMAL, TURN, SHORTCUT, HAZARD, GOO, BOUNCE, SPIRAL, CATAPULT, SPRINGBOARD }
 ## Stripe colour pairs per kind: blue/green normal, red/blue direction shift,
 ## yellow (reserved; fork rails are not colour-coded), red/yellow pitfall
 ## or goo hazard.
@@ -385,6 +385,8 @@ func _gate() -> void:
 ## followed by enough flat rail to land a full bounce or updraft arc.
 func _stunt() -> void:
 	var mix: Array = track.features
+	if mix.is_empty():
+		return
 	var kind: String = mix[_feature_spots.size() % mix.size()]
 	_line(15.0)
 	var spot := _spot(0.0)
@@ -401,6 +403,17 @@ func _stunt() -> void:
 		"updraft":
 			_line(CourseFeature.UPDRAFT_SPAN)
 			_line(55.0)
+		"catapult":
+			_line(CourseFeature.CATAPULT_LENGTH, 0.0, CATAPULT)
+			_line(70.0)
+		"springboard":
+			# The plank ends at a gap: hop it, or spring off the tip to soar.
+			_line(CourseFeature.SPRING_LENGTH, 0.0, SPRINGBOARD)
+			var lip := _pen
+			var landing := lip + Vector3(_dir * CourseFeature.SPRING_GAP, -CourseFeature.SPRING_DROP, 0.0)
+			gaps.append([lip, landing])
+			_begin(landing)
+			_line(120.0)
 
 func feature_at(index: int, s: float) -> CourseFeature:
 	for feature in features:
