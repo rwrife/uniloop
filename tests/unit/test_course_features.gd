@@ -2,7 +2,7 @@ extends GutTest
 
 const DT := 1.0 / 60.0
 const SAVE_PATH := "user://feature_test.json"
-const KINDS := ["bounce", "spiral", "updraft", "catapult"]
+const KINDS := ["bounce", "spiral", "updraft", "catapult", "springboard"]
 const OWNERS := {"sunny_sprint": "updraft", "canyon_climb": "spiral", "neon_night": "bounce", "goo_gauntlet": "catapult"}
 
 
@@ -311,6 +311,61 @@ func test_slime_catapult_swallows_then_flings_the_rider_out_fast() -> void:
 	assert_true(crashes.is_empty())
 
 
+func _spring_run(jump_offset: float) -> Dictionary:
+	var course := _course("rooftop_precision")
+	var board := _first(course, "springboard")
+	var wheel := _wheel(course)
+	_approach(wheel, board, 6.0)
+	var forward := &"move_right" if board.dir > 0 else &"move_left"
+	var result := {"peak": -INF, "landed": false, "crashes": [], "deepest": 0.0, "board": board}
+	for tick in 400:
+		if wheel.grounded:
+			Input.action_press(forward)
+		else:
+			Input.action_release(forward)
+		var offset: float = wheel.distance - board.anchor.s
+		if not wheel.grounded:
+			Input.action_release(&"jump")
+		elif wheel.section == board.anchor.sec and offset >= jump_offset and not Input.is_action_pressed(&"jump"):
+			# A press made inside a physics frame never reads as just-pressed.
+			await wait_process_frames(1)
+			Input.action_press(&"jump")
+		wheel._physics_process(DT)
+		if wheel.grounded and board.covers(wheel.section, wheel.distance):
+			var rail: Vector3 = course.sample(wheel.section, wheel.distance).pos
+			result.deepest = maxf(result.deepest, rail.y + wheel.handling.wheel_radius - wheel.global_position.y)
+		result.peak = maxf(result.peak, wheel.global_position.y - board.anchor.pos.y)
+		if wheel.recover_time > 0.0 or course.out_of_bounds(wheel.global_position):
+			result.crashes.append(wheel.global_position)
+			break
+		if wheel.grounded and wheel.section != board.anchor.sec:
+			result.landed = true
+			break
+	for action in UniloopUI.ACTIONS:
+		Input.action_release(action)
+	await wait_physics_frames(1)
+	return result
+
+
+func test_springboard_tip_pops_way_up_or_you_can_just_hop_the_gap() -> void:
+	var course := _course("rooftop_precision")
+	var board := _first(course, "springboard")
+	assert_not_null(board, "Rooftop has springboards")
+	assert_not_null(board.get_node("Visual/Springboard"))
+	assert_eq(course.sample(board.anchor.sec, board.anchor.s + 4.0).kind, CanyonCourse.SPRINGBOARD)
+	assert_eq(course.sections[board.anchor.sec].next, -1, "the plank ends at a gap")
+	for track in RaceSetup.TRACKS:
+		if track.id != "rooftop_precision":
+			assert_false("springboard" in track.features, track.id)
+	var popped: Dictionary = await _spring_run(board.length - 1.0)
+	var hopped: Dictionary = await _spring_run(4.0)
+	assert_true(popped.landed and popped.crashes.is_empty(), "tip pop lands safely: %s" % [popped])
+	assert_true(hopped.landed and hopped.crashes.is_empty(), "plain hop clears the gap: %s" % [hopped])
+	assert_gt(popped.deepest, CourseFeature.SPRING_DIP * 0.6, "board bends under the wheel near the tip")
+	assert_gt(popped.peak, hopped.peak * 2.0, "springing off the tip pops way higher than a hop")
+	assert_gt(popped.peak, 8.0)
+
+
 func test_every_feature_can_be_ridden_safely_at_speed() -> void:
 	for track in RaceSetup.TRACKS:
 		var course := _course(track.id)
@@ -319,7 +374,9 @@ func test_every_feature_can_be_ridden_safely_at_speed() -> void:
 			for hop in [false, true]:
 				var wheel := _wheel(course)
 				_approach(wheel, feature, 5.0)
-				if hop:
+				var board: bool = feature.kind == "springboard"
+				var jump_at: float = feature.length - 1.0 if hop else 4.0
+				if hop and not board:
 					Input.action_press(&"jump")
 				var crashes := []
 				var cleared := false
@@ -329,9 +386,18 @@ func test_every_feature_can_be_ridden_safely_at_speed() -> void:
 						Input.action_press(forward)
 					else:
 						Input.action_release(forward)
+					if board and not wheel.grounded:
+						Input.action_release(&"jump")
+					elif board and wheel.section == feature.anchor.sec \
+							and wheel.distance - feature.anchor.s >= jump_at and not Input.is_action_pressed(&"jump"):
+						await wait_process_frames(1)
+						Input.action_press(&"jump")
 					wheel._physics_process(DT)
 					if wheel.recover_time > 0.0 or wheel.course.out_of_bounds(wheel.global_position):
 						crashes.append([tick, wheel.section, wheel.distance, wheel.global_position])
+						break
+					if board and wheel.grounded and wheel.section != feature.anchor.sec:
+						cleared = true
 						break
 					if wheel.grounded and not wheel.corkscrewing and wheel.section == feature.anchor.sec \
 							and wheel.distance > feature.anchor.s + feature.length + 4.0:
@@ -414,7 +480,7 @@ func test_help_explains_every_feature_with_adaptive_input_prompts() -> void:
 	for child in menu.panel_body.get_children():
 		if child is Label:
 			text += child.text + "\n"
-	for name in ["BOUNCE FLOORS", "SPIRALS", "UPDRAFT FANS", "SLIME CATAPULTS"]:
+	for name in ["BOUNCE FLOORS", "SPIRALS", "UPDRAFT FANS", "SLIME CATAPULTS", "SPRINGBOARDS"]:
 		assert_true(name in text, name)
 	for track in RaceSetup.TRACKS:
 		assert_false(track.blurb.is_empty())

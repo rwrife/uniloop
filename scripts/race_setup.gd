@@ -71,8 +71,8 @@ const TRACKS: Array[Dictionary] = [
 	},
 	{
 		"id": "rooftop_precision", "title": "Rooftop Precision",
-		"blurb": "Skyline gaps and short landings, plus every stunt: fans, spirals, trampolines and slime catapults.",
-		"features": ["updraft", "spiral", "bounce", "catapult"],
+		"blurb": "Skyline gaps and short landings, plus every stunt and its own springboards: spring off the tip or just hop the gap.",
+		"features": ["updraft", "spiral", "bounce", "catapult", "springboard"],
 		"length": 2, "speed": 1, "difficulty": 3,
 		"plan": [["P", "uturn"], ["Q", "launch"], ["P", "uturn"], ["Q", "launch"], ["FINAL", ""]],
 		"bumps": [],

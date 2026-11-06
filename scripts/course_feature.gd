@@ -1,8 +1,9 @@
 class_name CourseFeature
 extends Node3D
 ## A stunt stretch built into the rail: a springy bounce floor, an auto-ride
-## spiral, an updraft fan or a slime catapult. Each course owns one kind
-## (Rooftop mixes them all) and repeats it after every checkpoint.
+## spiral, an updraft fan, a slime catapult or a springboard over a gap. Each
+## course owns one kind (Rooftop mixes them all) and repeats it after every
+## checkpoint.
 
 const BOUNCE_LENGTH := 24.0
 const BOUNCE_SAG := 0.35
@@ -33,7 +34,13 @@ const CATAPULT_CRAWL := 3.0
 const CATAPULT_GRIP := 110.0
 const CATAPULT_SPEED := 50.0
 const CATAPULT_KICK := 10.0
-const LENGTHS := {"bounce": BOUNCE_LENGTH, "spiral": CORK_LENGTH, "updraft": UPDRAFT_SPAN, "catapult": CATAPULT_LENGTH}
+const SPRING_LENGTH := 14.0
+const SPRING_DIP := 0.6
+const SPRING_SWEET := 3.0
+const SPRING_POP := 22.0
+const SPRING_GAP := 16.0
+const SPRING_DROP := 2.0
+const LENGTHS := {"bounce": BOUNCE_LENGTH, "spiral": CORK_LENGTH, "updraft": UPDRAFT_SPAN, "catapult": CATAPULT_LENGTH, "springboard": SPRING_LENGTH}
 
 var kind := ""
 var anchor: Dictionary
@@ -75,6 +82,8 @@ func populate(spot: Dictionary, feature_kind: String, heading: int, visual := tr
 			_build_updraft()
 		"catapult":
 			_build_catapult()
+		"springboard":
+			_build_springboard()
 	set_process(true)
 
 
@@ -87,6 +96,8 @@ func covers(sec: int, s: float) -> bool:
 func sag(offset: float) -> float:
 	if kind == "catapult":
 		return CATAPULT_SINK * smoothstep(0.0, CATAPULT_FIRE, offset) if offset < CATAPULT_FIRE else 0.0
+	if kind == "springboard":
+		return SPRING_DIP * pow(clampf(offset / length, 0.0, 1.0), 3.0)
 	return BOUNCE_SAG * smoothstep(0.0, 2.0, offset) * smoothstep(0.0, 2.0, length - offset)
 
 
@@ -140,6 +151,24 @@ func fling(offset: float) -> void:
 	burst.emitting = true
 
 
+## A springboard jump inside the last few metres of the plank pops way up.
+func sweet_spot(offset: float) -> bool:
+	return kind == "springboard" and offset >= length - SPRING_SWEET
+
+
+## Board deflection at `x` with the wheel pressing at `at` (a cantilever bend).
+func _bend(x: float, at: float) -> float:
+	var shape := x * x * (3.0 * at - x) if x <= at else at * at * (3.0 * x - at)
+	return -SPRING_DIP * shape / (2.0 * pow(length, 3.0))
+
+
+## The plank whips up after launching a rider.
+func flick() -> void:
+	for i in _pad_v.size():
+		var x := (i + 0.5) * BOUNCE_SEGMENT
+		_pad_v[i] += 10.0 * x / length
+
+
 func cork_ratio() -> float:
 	return sqrt(1.0 + pow(TAU * CORK_TURNS * CORK_RADIUS / CORK_LENGTH, 2.0))
 
@@ -171,8 +200,11 @@ func _process(delta: float) -> void:
 			var x := (i + 0.5) * BOUNCE_SEGMENT
 			var target := 0.0
 			if _press_time > 0.0:
-				var d := x - _press_at
-				target = -sag(x) * exp(-d * d / 2.5)
+				if kind == "springboard":
+					target = _bend(x, _press_at)
+				else:
+					var d := x - _press_at
+					target = -sag(x) * exp(-d * d / 2.5)
 			_pad_v[i] += ((target - _pad_y[i]) * 160.0 - _pad_v[i] * 7.0) * delta
 			_pad_y[i] += _pad_v[i] * delta
 			var y := _pad_y[i] - 0.2
@@ -394,3 +426,38 @@ func _build_catapult() -> void:
 	arrow.size = Vector3(0.9, 0.7, 0.1)
 	var marker := _part(arrow, Vector3(dir * CATAPULT_FIRE, -0.1, 1.05), _paint(Color("#d9ff4a"), 1.0))
 	marker.rotation.z = -PI / 2.0 * dir
+
+func _build_springboard() -> void:
+	var plank := BoxMesh.new()
+	plank.size = Vector3(BOUNCE_SEGMENT * 1.04, 0.22, 1.2)
+	var paint := _paint(Color.WHITE, 0.3)
+	paint.vertex_color_use_as_albedo = true
+	plank.material = paint
+	_pad = MultiMesh.new()
+	_pad.transform_format = MultiMesh.TRANSFORM_3D
+	_pad.use_colors = true
+	_pad.mesh = plank
+	var count := roundi(length / BOUNCE_SEGMENT)
+	_pad.instance_count = count
+	_pad_y.resize(count)
+	_pad_v.resize(count)
+	for i in count:
+		var tip := (i + 0.5) * BOUNCE_SEGMENT >= length - SPRING_SWEET
+		_pad.set_instance_color(i, Color("#ffd23f") if tip else (Color("#3fa9ff") if (i / 3) % 2 == 0 else Color("#8fd0ff")))
+		_pad.set_instance_transform(i, Transform3D(Basis.IDENTITY, Vector3(dir * (i + 0.5) * BOUNCE_SEGMENT, -0.2, 0)))
+	var board := MultiMeshInstance3D.new()
+	board.name = "Springboard"
+	board.multimesh = _pad
+	board.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_visual.add_child(board)
+	var base := BoxMesh.new()
+	base.size = Vector3(2.0, 2.4, 1.6)
+	_part(base, Vector3(dir * 1.0, -1.5, 0), _paint(Color("#24324a")))
+	var coil := TorusMesh.new()
+	coil.inner_radius = 0.16
+	coil.outer_radius = 0.3
+	coil.rings = 8
+	coil.ring_segments = 8
+	var steel := _paint(Color("#e4e9f2"))
+	for y in [-0.5, -0.75, -1.0, -1.25]:
+		_part(coil, Vector3(dir * length * 0.45, y, 0), steel)
