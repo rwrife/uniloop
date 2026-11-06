@@ -153,7 +153,8 @@ func test_apple_points_reach_results_and_saved_league_total() -> void:
 	var race := _race()
 	var at: Vector3 = race.course.apples.remaining[0].global_position
 	race.course.apples.squash_between(at, at, race.rider.handling.wheel_radius)
-	race.rules.tick(160000)
+	var silver: int = race.course.medals.silver
+	race.rules.tick(silver)
 	for index in race.course.gates.size():
 		assert_true(race.rules.cross_checkpoint(index))
 	race.rider.speed = race.rider.handling.gate_min_speed + 1.0
@@ -164,7 +165,7 @@ func test_apple_points_reach_results_and_saved_league_total() -> void:
 	var loaded := SaveStore.load_from_path(SAVE_PATH)
 	assert_true(loaded.ok)
 	assert_eq(loaded.save.total_score, 100)
-	assert_eq(loaded.save.records.the_monopoly.best_ms, 160000)
+	assert_eq(loaded.save.records.the_monopoly.best_ms, silver)
 	assert_eq(loaded.save.records.the_monopoly.medal, "silver")
 
 

@@ -23,7 +23,7 @@ const TRACKS: Array[Dictionary] = [
 		"length": 1, "speed": 2, "difficulty": 1,
 		"plan": [["RA", "uturn"], ["L", "launch"], ["RA", "uturn"], ["L", "launch"], ["FINAL", ""]],
 		"bumps": [2],
-		"medals": {"gold": 95000, "silver": 115000, "bronze": 150000},
+		"medals": {"gold": 85000, "silver": 100000, "bronze": 130000},
 		"sky": [Color(0.45, 0.62, 0.82), Color(0.55, 0.72, 0.9), Color(0.36, 0.52, 0.72)],
 	},
 	{
@@ -34,7 +34,7 @@ const TRACKS: Array[Dictionary] = [
 		"plan": [["RA", "uturn"], ["L", "launch"], ["RB", "launch"], ["L", "uturn"],
 			["RA", "launch"], ["L", "uturn"], ["RB", "launch"], ["L", "uturn"], ["FINAL", ""]],
 		"bumps": [2, 5],
-		"medals": {"gold": 180000, "silver": 220000, "bronze": 290000},
+		"medals": {"gold": 165000, "silver": 195000, "bronze": 255000},
 		"sky": [Color(0.42, 0.32, 0.30), Color(0.50, 0.40, 0.37), Color(0.35, 0.26, 0.27)],
 	},
 	{
@@ -44,7 +44,7 @@ const TRACKS: Array[Dictionary] = [
 		"length": 2, "speed": 3, "difficulty": 2,
 		"plan": [["S", "uturn"], ["L", "launch"], ["S", "launch"], ["L", "uturn"], ["S", "uturn"], ["L", "launch"], ["FINAL", ""]],
 		"bumps": [0, 4],
-		"medals": {"gold": 140000, "silver": 170000, "bronze": 225000},
+		"medals": {"gold": 130000, "silver": 150000, "bronze": 195000},
 		"sky": [Color(0.12, 0.08, 0.22), Color(0.17, 0.1, 0.3), Color(0.35, 0.08, 0.4)],
 	},
 	{
@@ -55,7 +55,7 @@ const TRACKS: Array[Dictionary] = [
 		"plan": [["RA", "uturn"], ["G", "launch"], ["RB", "launch"], ["L", "uturn"], ["RA", "launch"],
 			["G", "uturn"], ["RB", "launch"], ["G", "uturn"], ["RA", "launch"], ["L", "uturn"], ["FINAL", ""]],
 		"bumps": [1, 4, 8],
-		"medals": {"gold": 255000, "silver": 300000, "bronze": 400000},
+		"medals": {"gold": 225000, "silver": 265000, "bronze": 340000},
 		"sky": [Color(0.3, 0.36, 0.2), Color(0.38, 0.44, 0.24), Color(0.22, 0.3, 0.14)],
 	},
 	{
@@ -66,7 +66,7 @@ const TRACKS: Array[Dictionary] = [
 		"plan": [["RA", "uturn"], ["L", "launch"], ["RB", "launch"], ["L", "uturn"],
 			["RA", "uturn"], ["L", "launch"], ["FINAL", ""]],
 		"bumps": [2, 4],
-		"medals": {"gold": 145000, "silver": 180000, "bronze": 240000},
+		"medals": {"gold": 105000, "silver": 125000, "bronze": 160000},
 		"sky": [Color(0.32, 0.32, 0.32), Color(0.40, 0.40, 0.40), Color(0.24, 0.24, 0.24)],
 	},
 	{
@@ -76,7 +76,7 @@ const TRACKS: Array[Dictionary] = [
 		"length": 2, "speed": 1, "difficulty": 3,
 		"plan": [["P", "uturn"], ["Q", "launch"], ["P", "uturn"], ["Q", "launch"], ["FINAL", ""]],
 		"bumps": [],
-		"medals": {"gold": 125000, "silver": 160000, "bronze": 215000},
+		"medals": {"gold": 105000, "silver": 135000, "bronze": 185000},
 		"sky": [Color(0.24, 0.32, 0.46), Color(0.40, 0.48, 0.60), Color(0.19, 0.23, 0.34)],
 	},
 ]
