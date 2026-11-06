@@ -199,13 +199,6 @@ func _build_bounce() -> void:
 
 
 func _build_spiral() -> void:
-	var beam := CylinderMesh.new()
-	beam.top_radius = 0.5
-	beam.bottom_radius = 0.5
-	beam.height = CORK_LENGTH
-	beam.radial_segments = 12
-	var core := _part(beam, Vector3(dir * CORK_LENGTH * 0.5, -CORK_RADIUS, 0), _paint(Color("#656b77")))
-	core.rotation.z = PI / 2.0
 	var points := PackedVector3Array()
 	for i in 145:
 		var offset := CORK_LENGTH * i / 144.0
