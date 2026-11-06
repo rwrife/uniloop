@@ -2,7 +2,8 @@ extends GutTest
 
 const DT := 1.0 / 60.0
 const SAVE_PATH := "user://feature_test.json"
-const KINDS := ["bounce", "spiral", "updraft"]
+const KINDS := ["bounce", "spiral", "updraft", "catapult"]
+const OWNERS := {"sunny_sprint": "updraft", "canyon_climb": "spiral", "neon_night": "bounce", "goo_gauntlet": "catapult"}
 
 
 func after_each() -> void:
@@ -65,8 +66,11 @@ func _ride(wheel: WheelRider, seconds: float, crashes: Array) -> float:
 func test_every_course_scatters_a_feature_after_every_checkpoint() -> void:
 	for track in RaceSetup.TRACKS:
 		var course := _course(track.id)
+		if track.features.is_empty():
+			assert_eq(course.features.size(), 0, track.id + " has no stunt sections")
+			continue
 		assert_eq(course.features.size(), course.gates.size(), track.id)
-		assert_gte(course.features.size(), 5, track.id + " has plenty of features")
+		assert_gte(course.features.size(), 4, track.id + " has plenty of features")
 		var kinds := {}
 		for index in course.features.size():
 			var feature := course.features[index]
@@ -79,18 +83,19 @@ func test_every_course_scatters_a_feature_after_every_checkpoint() -> void:
 			assert_almost_eq(end.pos.y, feature.anchor.pos.y, 0.001, track.id + " feature runs on flat rail")
 			assert_eq(course.feature_at(feature.anchor.sec, feature.anchor.s + 1.0), feature)
 			kinds[feature.kind] = true
-		assert_gte(kinds.size(), 2, track.id + " mixes feature kinds")
+		if OWNERS.has(track.id):
+			assert_eq(kinds.keys(), [OWNERS[track.id]], track.id + " owns exactly one stunt kind")
 		assert_false(track.has("signature"), "old one-off signatures are gone")
 	for track in RaceSetup.TRACKS.slice(0, 5):
 		var course := _course(track.id)
 		assert_gt(course.goo_pits, 0, "existing goo remains")
 		assert_gt(course.loops, 0, "existing loops remain")
 		assert_gt(course.forks.size(), 0, "existing forks remain")
-	var sunny := _course("sunny_sprint")
-	var bounces := 0
-	for feature in sunny.features:
-		bounces += 1 if feature.kind == "bounce" else 0
-	assert_gte(bounces, 3, "Sunny Sprint is the bounce-floor course")
+	assert_eq(RaceSetup.track("the_monopoly").features, [], "The Monopoly keeps only its apples")
+	var rooftop := {}
+	for feature in _course("rooftop_precision").features:
+		rooftop[feature.kind] = true
+	assert_eq(rooftop.size(), KINDS.size(), "Rooftop gets every stunt")
 
 
 func test_all_courses_keep_gate_labels_without_instruction_signs() -> void:
@@ -120,7 +125,7 @@ func test_feature_and_apple_positions_are_deterministic() -> void:
 
 
 func test_bounce_floor_is_a_colored_stretch_that_bends_under_the_wheel() -> void:
-	var course := _course("sunny_sprint")
+	var course := _course("neon_night")
 	var floor := _first(course, "bounce")
 	assert_not_null(floor.get_node("Visual/BounceFloor"))
 	assert_eq(course.sample(floor.anchor.sec, floor.anchor.s + 4.0).kind, CanyonCourse.BOUNCE)
@@ -145,7 +150,7 @@ func test_bounce_floor_is_a_colored_stretch_that_bends_under_the_wheel() -> void
 
 
 func test_hopping_onto_a_bounce_floor_springs_far_higher_than_a_hop() -> void:
-	var course := _course("sunny_sprint")
+	var course := _course("neon_night")
 	var floor := _first(course, "bounce")
 	var plain := _wheel(course)
 	plain.place_on(course.start_spot.sec, course.start_spot.s)
@@ -175,11 +180,11 @@ func test_hopping_onto_a_bounce_floor_springs_far_higher_than_a_hop() -> void:
 
 
 func test_bounce_heights_grow_with_drop_and_cap() -> void:
-	var floor := _first(_course("sunny_sprint"), "bounce")
+	var floor := _first(_course("neon_night"), "bounce")
 	assert_eq(floor.bounce_speed(-2.0), CourseFeature.BOUNCE_MIN)
 	assert_gt(floor.bounce_speed(-14.0), floor.bounce_speed(-11.0))
 	assert_eq(floor.bounce_speed(-40.0), CourseFeature.BOUNCE_MAX)
-	var wheel := _wheel(_course("sunny_sprint"))
+	var wheel := _wheel(_course("neon_night"))
 	floor = _first(wheel.course, "bounce")
 	wheel.place_on(floor.anchor.sec, floor.anchor.s + 6.0)
 	wheel.speed = 10.0
@@ -253,7 +258,7 @@ func test_jumping_onto_a_spiral_still_catches_the_rider() -> void:
 
 
 func test_updraft_lifts_a_rider_well_above_a_hop() -> void:
-	var course := _course("neon_night")
+	var course := _course("sunny_sprint")
 	var fan := _first(course, "updraft")
 	assert_null(fan.get_node_or_null("Visual/Column"), "no big wind tube")
 	var housing: MeshInstance3D = fan.get_node("Visual/Housing")
@@ -270,6 +275,40 @@ func test_updraft_lifts_a_rider_well_above_a_hop() -> void:
 	assert_false(fan.lifts(fan.anchor.pos + Vector3(fan.dir * 6.0, CourseFeature.UPDRAFT_HEIGHT + 1.0, 0)))
 	assert_true(crashes.is_empty())
 	assert_true(wheel.grounded)
+
+
+func test_slime_catapult_swallows_then_flings_the_rider_out_fast() -> void:
+	var course := _course("goo_gauntlet")
+	var pit := _first(course, "catapult")
+	assert_not_null(pit.get_node("Visual/SlimePool"))
+	assert_eq(course.sample(pit.anchor.sec, pit.anchor.s + 4.0).kind, CanyonCourse.CATAPULT)
+	var wheel := _wheel(course)
+	_approach(wheel, pit)
+	var boosted := [0]
+	wheel.boosted.connect(func() -> void: boosted[0] += 1)
+	var slowest := INF
+	var deepest := 0.0
+	var crashes := []
+	for tick in 240:
+		wheel._physics_process(DT)
+		if wheel.grounded and pit.covers(wheel.section, wheel.distance):
+			slowest = minf(slowest, wheel.speed)
+			var rail: Vector3 = course.sample(wheel.section, wheel.distance).pos
+			deepest = maxf(deepest, rail.y + wheel.handling.wheel_radius - wheel.global_position.y)
+		if wheel.recover_time > 0.0:
+			crashes.append(wheel.global_position)
+			break
+		if boosted[0] > 0:
+			break
+	assert_lt(slowest, 8.0, "slime drags the wheel to a crawl")
+	assert_gt(deepest, CourseFeature.CATAPULT_SINK * 0.5, "wheel sinks into the slime")
+	assert_eq(boosted[0], 1, "catapult fires")
+	assert_false(wheel.grounded)
+	assert_gt(wheel.velocity.length(), wheel.handling.max_speed * 1.4, "flung out far faster than top speed")
+	assert_gt(wheel.velocity.y, 0.0)
+	var peak := _ride(wheel, 3.0, crashes)
+	assert_gt(peak, pit.anchor.pos.y + 1.0)
+	assert_true(crashes.is_empty())
 
 
 func test_every_feature_can_be_ridden_safely_at_speed() -> void:
@@ -375,7 +414,7 @@ func test_help_explains_every_feature_with_adaptive_input_prompts() -> void:
 	for child in menu.panel_body.get_children():
 		if child is Label:
 			text += child.text + "\n"
-	for name in ["BOUNCE FLOORS", "SPIRALS", "UPDRAFT FANS"]:
+	for name in ["BOUNCE FLOORS", "SPIRALS", "UPDRAFT FANS", "SLIME CATAPULTS"]:
 		assert_true(name in text, name)
 	for track in RaceSetup.TRACKS:
 		assert_false(track.blurb.is_empty())

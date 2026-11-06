@@ -71,7 +71,7 @@ func populate(course: CanyonCourse) -> void:
 					apple.add_child(leaf)
 					add_child(apple)
 					remaining.append(apple)
-			distance += rng.randf_range(32.0, 62.0)
+			distance += rng.randf_range(44.0, 82.0)
 
 
 func _apple_mesh() -> ArrayMesh:

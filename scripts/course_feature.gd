@@ -1,7 +1,8 @@
 class_name CourseFeature
 extends Node3D
 ## A stunt stretch built into the rail: a springy bounce floor, an auto-ride
-## spiral or an updraft fan. Courses scatter several of these along their legs.
+## spiral, an updraft fan or a slime catapult. Each course owns one kind
+## (Rooftop mixes them all) and repeats it after every checkpoint.
 
 const BOUNCE_LENGTH := 24.0
 const BOUNCE_SAG := 0.35
@@ -25,7 +26,14 @@ const UPDRAFT_MAX := 15.0
 const UPDRAFT_KICK := 6.0
 const FAN_RADIUS := 1.3
 const FAN_DROP := 2.6
-const LENGTHS := {"bounce": BOUNCE_LENGTH, "spiral": CORK_LENGTH, "updraft": UPDRAFT_SPAN}
+const CATAPULT_LENGTH := 24.0
+const CATAPULT_FIRE := 14.0
+const CATAPULT_SINK := 0.55
+const CATAPULT_CRAWL := 3.0
+const CATAPULT_GRIP := 110.0
+const CATAPULT_SPEED := 50.0
+const CATAPULT_KICK := 10.0
+const LENGTHS := {"bounce": BOUNCE_LENGTH, "spiral": CORK_LENGTH, "updraft": UPDRAFT_SPAN, "catapult": CATAPULT_LENGTH}
 
 var kind := ""
 var anchor: Dictionary
@@ -35,6 +43,7 @@ var _visual: Node3D
 var _pad: MultiMesh
 var _pad_y := PackedFloat32Array()
 var _pad_v := PackedFloat32Array()
+var _pad_basis := Basis.IDENTITY
 var _press_at := 0.0
 var _press_time := 0.0
 var _blades: Node3D
@@ -64,6 +73,8 @@ func populate(spot: Dictionary, feature_kind: String, heading: int, visual := tr
 			_build_spiral()
 		"updraft":
 			_build_updraft()
+		"catapult":
+			_build_catapult()
 	set_process(true)
 
 
@@ -72,7 +83,10 @@ func covers(sec: int, s: float) -> bool:
 
 
 ## Depth the floor sinks under a wheel at `offset`; tapers to zero at the ends.
+## Slime gets deeper and deeper until the catapult fires.
 func sag(offset: float) -> float:
+	if kind == "catapult":
+		return CATAPULT_SINK * smoothstep(0.0, CATAPULT_FIRE, offset) if offset < CATAPULT_FIRE else 0.0
 	return BOUNCE_SAG * smoothstep(0.0, 2.0, offset) * smoothstep(0.0, 2.0, length - offset)
 
 
@@ -91,6 +105,39 @@ func kick(offset: float) -> void:
 	for i in _pad_v.size():
 		var d := (i + 0.5) * BOUNCE_SEGMENT - offset
 		_pad_v[i] -= 7.0 * exp(-d * d / 4.0)
+
+
+## The slime erupts: blobs fly up and a burst of droplets sprays out.
+func fling(offset: float) -> void:
+	if _pad == null:
+		return
+	for i in _pad_v.size():
+		var d := (i + 0.5) * BOUNCE_SEGMENT - offset
+		_pad_v[i] += 9.0 * exp(-d * d / 6.0)
+	var burst := CPUParticles3D.new()
+	burst.name = "SlimeBurst"
+	burst.one_shot = true
+	burst.amount = 14 if not _animate else 40
+	burst.lifetime = 0.9
+	burst.explosiveness = 1.0
+	burst.direction = Vector3(dir * 0.5, 1, 0)
+	burst.spread = 50.0
+	burst.initial_velocity_min = 4.0
+	burst.initial_velocity_max = 9.0
+	burst.gravity = Vector3(0, -18, 0)
+	burst.scale_amount_min = 0.6
+	burst.scale_amount_max = 1.4
+	var drop := SphereMesh.new()
+	drop.radius = 0.12
+	drop.height = 0.24
+	drop.radial_segments = 6
+	drop.rings = 3
+	drop.material = _paint(Color("#7dff3a"), 0.6)
+	burst.mesh = drop
+	burst.position = Vector3(dir * offset, 0.2, 0)
+	_visual.add_child(burst)
+	burst.finished.connect(burst.queue_free)
+	burst.emitting = true
 
 
 func cork_ratio() -> float:
@@ -128,7 +175,10 @@ func _process(delta: float) -> void:
 				target = -sag(x) * exp(-d * d / 2.5)
 			_pad_v[i] += ((target - _pad_y[i]) * 160.0 - _pad_v[i] * 7.0) * delta
 			_pad_y[i] += _pad_v[i] * delta
-			_pad.set_instance_transform(i, Transform3D(Basis.IDENTITY, Vector3(dir * x, _pad_y[i] - 0.2, 0)))
+			var y := _pad_y[i] - 0.2
+			if kind == "catapult" and _animate:
+				y += sin(_clock * 3.0 + i * 0.7) * 0.04
+			_pad.set_instance_transform(i, Transform3D(_pad_basis, Vector3(dir * x, y, 0)))
 	if _blades != null and _animate:
 		_blades.rotation.y = _clock * 14.0
 		_place_streaks()
@@ -302,3 +352,45 @@ func _place_streaks() -> void:
 				rise - FAN_DROP, float(holder.get_meta("z")) * (1.0 + t))
 		holder.scale = Vector3.ONE * (1.0 - t * 0.6)
 		holder.visible = t < 0.95
+
+
+func _build_catapult() -> void:
+	var blob := SphereMesh.new()
+	blob.radius = 0.5
+	blob.height = 0.7
+	blob.radial_segments = 12
+	blob.rings = 6
+	var paint := _paint(Color.WHITE, 0.45)
+	paint.vertex_color_use_as_albedo = true
+	paint.roughness = 0.1
+	blob.material = paint
+	_pad_basis = Basis.from_scale(Vector3(1.0, 0.8, 1.6))
+	_pad = MultiMesh.new()
+	_pad.transform_format = MultiMesh.TRANSFORM_3D
+	_pad.use_colors = true
+	_pad.mesh = blob
+	var count := roundi(length / BOUNCE_SEGMENT)
+	_pad.instance_count = count
+	_pad_y.resize(count)
+	_pad_v.resize(count)
+	for i in count:
+		var shade := 0.85 + 0.15 * sin(i * 1.7)
+		_pad.set_instance_color(i, Color("#5ee62a").lerp(Color("#b6ff5c"), shade - 0.7))
+		_pad.set_instance_transform(i, Transform3D(_pad_basis, Vector3(dir * (i + 0.5) * BOUNCE_SEGMENT, -0.2, 0)))
+	var pool := MultiMeshInstance3D.new()
+	pool.name = "SlimePool"
+	pool.multimesh = _pad
+	pool.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_visual.add_child(pool)
+	var tub := BoxMesh.new()
+	tub.size = Vector3(length, 0.5, 1.9)
+	_part(tub, Vector3(dir * length * 0.5, -0.65, 0), _paint(Color("#2f5d1c")))
+	var rim := BoxMesh.new()
+	rim.size = Vector3(0.35, 0.8, 2.0)
+	var dark := _paint(Color("#1f3d12"))
+	for x in [0.0, length]:
+		_part(rim, Vector3(dir * x, -0.35, 0), dark)
+	var arrow := PrismMesh.new()
+	arrow.size = Vector3(0.9, 0.7, 0.1)
+	var marker := _part(arrow, Vector3(dir * CATAPULT_FIRE, -0.1, 1.05), _paint(Color("#d9ff4a"), 1.0))
+	marker.rotation.z = -PI / 2.0 * dir

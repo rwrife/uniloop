@@ -18,8 +18,8 @@ const UNIS: Array[Dictionary] = [
 const TRACKS: Array[Dictionary] = [
 	{
 		"id": "sunny_sprint", "title": "Sunny Sprint",
-		"blurb": "Gentle forks and goo pits. Pink bounce floors sag under your wheel; land on one to spring sky-high.",
-		"features": ["bounce", "updraft", "bounce", "spiral", "bounce"],
+		"blurb": "Gentle forks and goo pits. Spinning updraft fans under the rail blow you into the sky.",
+		"features": ["updraft"],
 		"length": 1, "speed": 2, "difficulty": 1,
 		"plan": [["RA", "uturn"], ["L", "launch"], ["RA", "uturn"], ["L", "launch"], ["FINAL", ""]],
 		"bumps": [2],
@@ -29,7 +29,7 @@ const TRACKS: Array[Dictionary] = [
 	{
 		"id": "canyon_climb", "title": "Canyon Ribbon",
 		"blurb": "Loops, launches and mud. Golden spirals whip you around and fling you out boosted.",
-		"features": ["spiral", "bounce", "spiral", "updraft"],
+		"features": ["spiral"],
 		"length": 2, "speed": 2, "difficulty": 2,
 		"plan": [["RA", "uturn"], ["L", "launch"], ["RB", "launch"], ["L", "uturn"],
 			["RA", "launch"], ["L", "uturn"], ["RB", "launch"], ["L", "uturn"], ["FINAL", ""]],
@@ -39,8 +39,8 @@ const TRACKS: Array[Dictionary] = [
 	},
 	{
 		"id": "neon_night", "title": "Neon Night",
-		"blurb": "Boosts and loops. Updraft fans hurl you into the neon sky.",
-		"features": ["updraft", "spiral", "bounce"],
+		"blurb": "Boosts and loops. Pink trampoline floors sag under your wheel; land on one to spring sky-high.",
+		"features": ["bounce"],
 		"length": 2, "speed": 3, "difficulty": 2,
 		"plan": [["S", "uturn"], ["L", "launch"], ["S", "launch"], ["L", "uturn"], ["S", "uturn"], ["L", "launch"], ["FINAL", ""]],
 		"bumps": [0, 4],
@@ -49,8 +49,8 @@ const TRACKS: Array[Dictionary] = [
 	},
 	{
 		"id": "goo_gauntlet", "title": "Goo Gauntlet",
-		"blurb": "Goo, forks and rocket bumps, broken up by bounce floors, spirals and fans.",
-		"features": ["bounce", "spiral", "updraft"],
+		"blurb": "Goo, forks and rocket bumps. Slime catapults swallow your wheel, then erupt and fling you out.",
+		"features": ["catapult"],
 		"length": 3, "speed": 1, "difficulty": 3,
 		"plan": [["RA", "uturn"], ["G", "launch"], ["RB", "launch"], ["L", "uturn"], ["RA", "launch"],
 			["G", "uturn"], ["RB", "launch"], ["G", "uturn"], ["RA", "launch"], ["L", "uturn"], ["FINAL", ""]],
@@ -60,8 +60,8 @@ const TRACKS: Array[Dictionary] = [
 	},
 	{
 		"id": "the_monopoly", "title": "The Monopoly",
-		"blurb": "Corporate gray with off-brand spirals and bounce floors. Squash red apples for 100 points.",
-		"features": ["spiral", "bounce", "updraft"],
+		"blurb": "Corporate gray and strictly business. Squash red apples for 100 points.",
+		"features": [],
 		"length": 2, "speed": 2, "difficulty": 2,
 		"plan": [["RA", "uturn"], ["L", "launch"], ["RB", "launch"], ["L", "uturn"],
 			["RA", "uturn"], ["L", "launch"], ["FINAL", ""]],
@@ -71,8 +71,8 @@ const TRACKS: Array[Dictionary] = [
 	},
 	{
 		"id": "rooftop_precision", "title": "Rooftop Precision",
-		"blurb": "Skyline gaps and short landings. Brake to line up; hold Up at forks for boosted stunt gaps.",
-		"features": ["updraft", "bounce"],
+		"blurb": "Skyline gaps and short landings, plus every stunt: fans, spirals, trampolines and slime catapults.",
+		"features": ["updraft", "spiral", "bounce", "catapult"],
 		"length": 2, "speed": 1, "difficulty": 3,
 		"plan": [["P", "uturn"], ["Q", "launch"], ["P", "uturn"], ["Q", "launch"], ["FINAL", ""]],
 		"bumps": [],
