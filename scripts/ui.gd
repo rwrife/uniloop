@@ -30,9 +30,8 @@ static func safe_margins(viewport_rect: Rect2i, safe_rect: Rect2i) -> Vector4i:
 		maxi(16, viewport_rect.end.y - safe_rect.end.y + 16))
 
 
-static func uses_ios_compatibility() -> bool:
-	# Godot's iOS simulator template uses Apple's software OpenGL renderer.
-	return OS.has_feature("ios") and RenderingServer.get_current_rendering_method() == "gl_compatibility"
+static func uses_lightweight_rendering() -> bool:
+	return (OS.has_feature("ios") or OS.has_feature("web")) and RenderingServer.get_current_rendering_method() == "gl_compatibility"
 
 
 static func viewport_safe_rect(viewport: Viewport) -> Rect2i:
@@ -177,7 +176,7 @@ static func prompt(action: StringName, device: String) -> String:
 		"xbox": pad + ["A", "X", "LB", "RB", "Y", "Menu"],
 		"playstation": pad + ["✕", "□", "L1", "R1", "△", "Options"],
 		"nintendo": pad + ["B", "Y", "L", "R", "X", "+"],
-		"touch": ["◀", "▶", "▲", "▼", "JUMP", "BRAKE", "L", "R", "STUNT", "PAUSE"],
+		"touch": ["LEFT", "RIGHT", "FLIP", "ROLL", "JUMP", "BRAKE", "L", "R", "STUNT", "PAUSE"],
 	}
 	if device == "keyboard":
 		var keys: Array[String] = []

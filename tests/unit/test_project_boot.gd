@@ -25,6 +25,20 @@ func test_input_actions_exist_with_gamepad_binding() -> void:
 				has_pad = true
 		assert_true(has_pad, "%s needs a gamepad binding" % action)
 
+func test_gameplay_bindings_accept_reconnected_controllers() -> void:
+	for device in [0, 1, 3]:
+		for action in ACTIONS:
+			var checked := false
+			for binding in InputMap.action_get_events(action):
+				if binding is InputEventJoypadButton or binding is InputEventJoypadMotion:
+					var event := binding.duplicate() as InputEvent
+					event.device = device
+					if event is InputEventJoypadButton:
+						event.pressed = true
+					assert_true(event.is_action(action), "%s on controller %d" % [action, device])
+					checked = true
+			assert_true(checked)
+
 
 func test_scenes_instantiate() -> void:
 	for path in ["res://scenes/menu.tscn", "res://scenes/practice.tscn"]:
@@ -37,6 +51,12 @@ func test_scenes_instantiate() -> void:
 
 func test_main_scene_is_menu() -> void:
 	assert_eq(ProjectSettings.get_setting("application/run/main_scene"), "res://scenes/menu.tscn")
+
+func test_web_uses_sample_audio_for_single_threaded_export() -> void:
+	assert_eq(ProjectSettings.get_setting("audio/general/default_playback_type.web"), 1)
+	var presets := ConfigFile.new()
+	assert_eq(presets.load("res://export_presets.cfg"), OK)
+	assert_false(presets.get_value("preset.4.options", "variant/thread_support"))
 
 
 func test_toolchain_pin_matches_running_editor() -> void:

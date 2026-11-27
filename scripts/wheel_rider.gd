@@ -80,7 +80,7 @@ func _ready() -> void:
 
 func _material(color: Color, metallic: float, roughness: float) -> StandardMaterial3D:
 	var paint := StandardMaterial3D.new()
-	if UniloopUI.uses_ios_compatibility():
+	if UniloopUI.uses_lightweight_rendering():
 		paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.albedo_color = color
 	paint.metallic = metallic

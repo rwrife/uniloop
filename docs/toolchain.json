@@ -13,6 +13,15 @@
     "ux_strategy_description": "Fully custom branded game UI with Control nodes, adaptive safe-area handling, platform back/quit, touch controls and keyboard/gamepad glyphs"
   },
   "platforms": {
+    "web": {
+      "status": "primary",
+      "export_preset": "Web",
+      "renderer": "Compatibility",
+      "thread_support": false,
+      "inputs": ["keyboard", "gamepad", "touch"],
+      "hosting": "HTTPS static files",
+      "offline_reload": false
+    },
     "windows": {
       "status": "primary",
       "export_preset": "Windows Desktop",
@@ -20,14 +29,14 @@
       "binary_format": "zip"
     },
     "android": {
-      "status": "secondary",
+      "status": "deprioritized",
       "export_preset": "Android",
       "renderer": "Mobile",
       "application_id": "com.infinityball.uniloop",
       "tablet_support": true
     },
     "ios": {
-      "status": "secondary",
+      "status": "deprioritized",
       "export_preset": "iOS",
       "renderer": "Mobile",
       "bundle_identifier": "com.infinityball.uniloop",
