@@ -20,6 +20,7 @@ exports/
 *.xcarchive/
 *.zip
 # Development tools
+.worktrees/
 .vscode/
 .idea/
 .DS_Store

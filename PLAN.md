@@ -1,5 +1,15 @@
 # Uniloop implementation plan
 
+## Current priority (2026-11-27)
+
+Desktop and Web are the active targets. Native Android/iOS work is deprioritized
+at the owner's request. The owner has validated desktop gamepad operation.
+Web uses the existing keyboard, gamepad and multi-touch input contract with a
+single-threaded Compatibility export for ordinary HTTPS static hosting. The
+Web CI artifact is a build, not authorization to publish a website or release.
+Physical browser gamepad and touch-device performance checks remain separate
+from desktop validation. The historical milestones below describe earlier work.
+
 ## Scope and architecture
 
 Build original 3D single-wheel momentum-racing game in Godot 4.7.2-stable (GDScript). Vehicle motion is ground-contact-driven: lean controls torque; speed and jump arc affect landing stability; authored checkpoints and forgiving resets keep courses learnable. Avoid imitation of any existing game's names, levels, artwork, soundtrack or exact handling. Pure gameplay state for checkpoint order, time, trick/landing score and medals stays separate from scene rendering, input adaptation and persistent records. Deterministic fixtures and GUT/gdUnit4 tests should gate domain logic.
@@ -25,7 +35,7 @@ One `project.godot` with `export_presets.cfg` checked in; addon/test harness arr
 | Android phone + tablet | Mobile | Committed build gate, planned; no build yet |
 | iOS iPhone + iPad | Mobile | Committed macOS export milestone, planned; no build yet |
 | Linux/macOS | Forward+ / Mobile fallback | Future exports, untested |
-| Web | Compatibility | Future feasibility check, untested |
+| Web | Compatibility | Single-threaded export and CI artifact configured; static HTTPS hosting supported; no public deployment yet |
 
 Desktop modern-3D target: PBR, dynamic lights + LightmapGI/SDFGI where measured, glow, SSAO, reflections where affordable, particles, tonemapping. Mobile scales geometry/light/particle budgets down. No ray-tracing promise. Course quality measured with screenshots and frame-time captures on real devices, not declarations.
 

@@ -753,7 +753,7 @@ func find_landing(from: Vector3, to: Vector3, velocity: Vector3, r: float, skip_
 
 func _paint(color: Color, emission := 0.0) -> StandardMaterial3D:
 	var paint := StandardMaterial3D.new()
-	if UniloopUI.uses_ios_compatibility():
+	if UniloopUI.uses_lightweight_rendering():
 		paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.albedo_color = color
 	paint.metallic = 0.25
@@ -772,7 +772,7 @@ func spark_color(base_color: Color) -> Color:
 
 func _build_rail() -> void:
 	var paint := StandardMaterial3D.new()
-	if UniloopUI.uses_ios_compatibility():
+	if UniloopUI.uses_lightweight_rendering():
 		paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.vertex_color_use_as_albedo = true
 	paint.metallic = 0.3
@@ -823,7 +823,7 @@ func _build_rail() -> void:
 	var drip := _drip_mesh()
 	var drip_paint := ShaderMaterial.new()
 	drip_paint.shader = Shader.new()
-	drip_paint.shader.code = DRIP_SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode unshaded;") if UniloopUI.uses_ios_compatibility() else DRIP_SHADER
+	drip_paint.shader.code = DRIP_SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode unshaded;") if UniloopUI.uses_lightweight_rendering() else DRIP_SHADER
 	drip_paint.set_shader_parameter("surface_color", goo_paint.albedo_color)
 	drip_paint.set_shader_parameter("glow_color", goo_paint.emission)
 	drip_paint.set_shader_parameter("glow_energy", goo_paint.emission_energy_multiplier)

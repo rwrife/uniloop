@@ -13,7 +13,7 @@ An offline, single-player momentum racer for **macOS and Windows**. Ride a unicy
 
 Both desktop apps support keyboard and gamepad controls. The Mac app is ad-hoc signed and has not been Developer ID signed or notarized; macOS may require approval in **System Settings → Privacy & Security** before opening it.
 
-The v0.2.0 Windows release passed export, icon/metadata, and headless test checks in GitHub Actions. The universal Mac app passed architecture and signature checks and launched on macOS. All 52 local GUT tests passed. Physical gamepad operation has not yet been verified.
+The v0.2.0 Windows release passed export, icon/metadata, and headless test checks in GitHub Actions. The universal Mac app passed architecture and signature checks and launched on macOS. All 52 local GUT tests passed. Physical gamepad operation has been validated by the project owner on desktop; browser gamepad validation is separate.
 
 ## Desktop screenshots
 
@@ -52,7 +52,7 @@ Rails are one-way: land on them from above. Hold Up at a fork to choose the uppe
 
 Finish a run to see your time, medal, points, stunt count, top speed, and wipeouts. The League screen shows local best times and medals. A translucent best-run ghost races beside you using the same fixed 60 Hz rider physics and saved controls, including checkpoint resets; countdown and pause freeze both racers. Only a strictly faster run replaces the best time and its matching ghost. Existing records remain intact without invented replay data. Replays are captured for runs up to 20 minutes; longer best runs retain their time but clear an older ghost. Damaged or incompatible replay data drops independently of records and settings, and unreadable save files are never overwritten by fallback progress. Options include keyboard remapping, text scaling, high contrast, reduced motion, camera shake, and audio settings.
 
-Multiplayer is a disabled “coming soon” menu item. Android and iOS are development targets; the release above contains desktop apps only. Linux and Web builds are not available.
+Multiplayer is a disabled “coming soon” menu item. Desktop and Web are the current development targets; native Android and iOS work is deprioritized. The release above contains desktop apps only. The Web build can be exported from source or downloaded from the CI artifact once its workflow has run; it is not published to a playable website yet. Linux builds are not available.
 
 ## Controls
 
@@ -132,6 +132,42 @@ godot --headless --path . --export-release "Windows Desktop" build/windows/unilo
 ```
 
 The [release workflow](.github/workflows/release.yml) builds and publishes the Windows zip on `v*` tags or manual dispatch. For manual dispatch, use `main` and supply a `release_tag`, such as `v0.2.0`. The macOS workflow uploads a build artifact; attaching the Mac zip to a release is a separate step.
+
+### Web
+
+With the matching Godot export templates installed:
+
+```sh
+mkdir -p build/web
+godot --headless --path . --export-release "Web" build/web/index.html
+python -m http.server 8000 --bind 127.0.0.1 --directory build/web
+```
+
+Open `http://localhost:8000` in a browser with WebGL 2 and WebAssembly. Opening
+`index.html` directly as a file will not work. The Web preset uses single-threaded
+Compatibility rendering and browser-native sample audio to reduce audio dropouts
+when frames stall. Music transitions, volume controls and pause use the same
+game logic as desktop; exact crossfade timing may vary in browsers. Audio bus
+effects are not supported in this mode.
+It does not require cross-origin isolation headers or a service worker. Desktop
+Forward+ rendering is unchanged. The [CI workflow](.github/workflows/ci.yml)
+exports an `uniloop-web` artifact after the tests pass.
+
+Keyboard bindings and gamepad controls are the same as desktop. Connect the
+controller, then press one of its buttons so the browser exposes it. Click/tap
+the game or press a key to enable browser audio. Touch devices use the existing
+multi-touch controls; the first touch also enables the overlay if the browser
+did not report a touchscreen at startup. On-Screen Touch Buttons in Options can
+disable it. Switching away pauses the race and releases held touch actions.
+
+To host the build, upload **every file** in `build/web` together to an HTTPS
+static host, keeping their names and relative paths. Serve `.wasm` as
+`application/wasm`; HTTP compression is recommended. The initial download is
+approximately 80 MB before server compression. Browser records and settings
+use local browser storage for that website, not the desktop save directory.
+Clearing site data removes them; private browsing may not retain them. The game
+has no accounts or gameplay network service, but the browser must download the
+files initially; offline reload/install caching is not enabled.
 
 ### Windows Store MSIX submission artifact
 

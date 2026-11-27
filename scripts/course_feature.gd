@@ -221,7 +221,7 @@ func _paint(color: Color, glow := 0.0, alpha := 1.0) -> StandardMaterial3D:
 	paint.albedo_color = Color(color, alpha)
 	paint.metallic = 0.2
 	paint.roughness = 0.35
-	if UniloopUI.uses_ios_compatibility() or alpha < 1.0:
+	if UniloopUI.uses_lightweight_rendering() or alpha < 1.0:
 		paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	if alpha < 1.0:
 		paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

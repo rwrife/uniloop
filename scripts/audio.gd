@@ -83,7 +83,7 @@ func _ready() -> void:
 	_ui_viewport = get_viewport()
 	for cue in UI_SFX:
 		_load_stream(UI_SFX[cue])
-	_ui_viewport.gui_focus_changed.connect(_on_ui_focus_changed)
+	_ui_viewport.gui_focus_changed.connect(_on_ui_focus_changed, CONNECT_DEFERRED)
 	get_tree().node_added.connect(_watch_ui_node)
 	for node in _ui_root.find_children("*", "BaseButton", true, false):
 		_watch_ui_node(node)
@@ -97,7 +97,7 @@ func _watch_ui_node(node: Node) -> void:
 
 
 func _on_ui_focus_changed(control: Control) -> void:
-	if _ui_root.is_ancestor_of(control):
+	if is_instance_valid(control) and _ui_root.is_ancestor_of(control):
 		play_ui("ui_tick")
 
 

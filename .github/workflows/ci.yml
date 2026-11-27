@@ -15,7 +15,7 @@ env:
 
 jobs:
   verify:
-    name: Import + GUT (Linux headless)
+    name: Import + GUT + Web export (Linux headless)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -39,6 +39,26 @@ jobs:
         run: '"$RUNNER_TEMP/godot" --headless --path . --import --quit'
       - name: Run GUT
         run: '"$RUNNER_TEMP/godot" --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit'
+      - name: Install pinned web export templates
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/templates.tpz" "$GODOT_BASE_URL/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          (cd "$RUNNER_TEMP" && grep -F " Godot_v${GODOT_VERSION}_export_templates.tpz" SHA512-SUMS.txt | sed "s|Godot_v${GODOT_VERSION}_export_templates.tpz|templates.tpz|" | sha512sum -c -)
+          tdir="$HOME/.local/share/godot/export_templates/${GODOT_VERSION/-/.}"
+          mkdir -p "$tdir"
+          unzip -q "$RUNNER_TEMP/templates.tpz" 'templates/web_nothreads_release.zip' -d "$RUNNER_TEMP/web-templates"
+          cp "$RUNNER_TEMP/web-templates/templates/web_nothreads_release.zip" "$tdir/"
+      - name: Export Web
+        run: |
+          mkdir -p build/web
+          "$RUNNER_TEMP/godot" --headless --path . --export-release "Web" build/web/index.html
+          for file in index.html index.js index.wasm index.pck; do
+            test -s "build/web/$file"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uniloop-web
+          path: build/web/
+          if-no-files-found: error
 
   windows-export:
     name: Windows Desktop export

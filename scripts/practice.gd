@@ -12,6 +12,7 @@ const ACTIONS: Array[StringName] = [&"move_left", &"move_right", &"flip_back", &
 const TRICK_SCORE := 500
 const CRASH_PENALTY := 250
 const CAMERA_TRACK_X := 12.0
+const CAMERA_FOV := 45.0
 const STATS_DELAY := 1.0 # ponytail: fixed rollout; tune by course only if measured footage needs it.
 var course: CanyonCourse
 var rider: WheelRider
@@ -54,6 +55,9 @@ var _checkpoint_bursts: Array[CPUParticles3D] = []
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		if _touch_buttons.is_empty() and SaveStore.get_settings(save).touch_overlay:
+			_build_touch_overlay()
+			_apply_safe_area()
 		_handle_touch(event)
 	if (pause_panel.visible or (stats_panel != null and stats_panel.visible)) and UniloopUI.is_menu_submit(event):
 		if UniloopUI.activate_focused_control(get_viewport()):
@@ -152,7 +156,7 @@ func _restart_course() -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	$Camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	if UniloopUI.uses_ios_compatibility():
+	if UniloopUI.uses_lightweight_rendering():
 		$Sun.shadow_enabled = false
 		get_viewport().scaling_3d_scale = 1.0
 		($Environment as WorldEnvironment).environment.glow_enabled = false
@@ -771,6 +775,10 @@ func _show_stats() -> void:
 
 func _apply_safe_area() -> void:
 	var viewport_rect := Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size)
+	var portrait := viewport_rect.size.x < viewport_rect.size.y
+	var camera: Camera3D = $Camera
+	camera.keep_aspect = Camera3D.KEEP_WIDTH if portrait else Camera3D.KEEP_HEIGHT
+	camera.fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(CAMERA_FOV) * 0.5) * 16.0 / 9.0)) if portrait else CAMERA_FOV
 	var margins := UniloopUI.safe_margins(viewport_rect, UniloopUI.viewport_safe_rect(get_viewport()) if DisplayServer.is_touchscreen_available() else viewport_rect)
 	status.position = Vector2(margins.x, margins.y)
 	status.size = Vector2.ZERO
@@ -805,6 +813,7 @@ func _build_touch_overlay() -> void:
 	overlay.name = "TouchOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.visible = not get_tree().paused and (stats_panel == null or not stats_panel.visible)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.09, 0.15, 0.25, 0.45)
 	style.border_color = Color(0.32, 0.88, 0.92, 0.7)
